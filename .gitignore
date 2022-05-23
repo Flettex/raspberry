@@ -34,3 +34,6 @@ coverage
 
 # monorepo stuff
 package.json
+
+# ok well
+html.rs
