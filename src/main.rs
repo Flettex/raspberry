@@ -18,12 +18,18 @@ use actix_web::{
 
 use sqlx::postgres::PgPool;
 
+// self use
 mod controllers;
-mod db;
-mod html;
 mod server;
-mod session;
 mod test;
+
+// for controllers
+mod db;
+mod session;
+// test views for debugging purposes...
+mod html;
+
+use self::server::ChatServer;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -38,7 +44,7 @@ async fn main() -> std::io::Result<()> {
     .await
     .expect("Failed to create pool");
 
-    let server = server::ChatServer::new(app_state.clone()).start();
+    let server = ChatServer::new(app_state.clone()).start();
 
     let is_dev = match env::var("RAILWAY_STATIC_URL") {
         Ok(_) => false,
@@ -56,7 +62,7 @@ async fn main() -> std::io::Result<()> {
             }
         )
     );
-
+    
     HttpServer::new(move || {
         let policy = CookieIdentityPolicy::new(&[0; 32])
             .name("auth-cookie")

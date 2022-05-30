@@ -1,7 +1,8 @@
 use actix_web::{
     web,
     services,
-    HttpResponse
+    HttpResponse,
+    http::header::ContentType,
 };
 
 pub mod login;
@@ -11,13 +12,29 @@ pub mod index;
 pub mod ws;
 pub mod count;
 pub mod default;
+use crate::html;
+
+macro_rules! view {
+    ( $path: expr, $content: expr ) => {
+        web::resource($path)
+            .route(web::get().to(|| async {
+                HttpResponse::Ok()
+                    .content_type(ContentType::html())
+                    .body($content)
+            }))
+    };
+}
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
         services![
-            web::resource("/")
-                .route(web::get().to(index::get))
+            view!("/", html::INDEX)
                 .route(web::post().to(index::post)),
+            view!("/chat", html::CHAT),
+            view!("/signup", html::SIGNUP)
+                .route(web::post().to(signup::post)),
+            view!("/login", html::LOGIN)
+                .route(web::post().to(login::post)),
             web::resource("/count")
                 .route(web::get().to(count::get)),
             web::resource("/health")
@@ -26,10 +43,6 @@ pub fn config(cfg: &mut web::ServiceConfig) {
                 })),
             web::resource("/ws")
                 .route(web::get().to(ws::get)),
-            web::resource("/login")
-                .route(web::post().to(login::post)),
-            web::resource("/signup")
-                .route(web::post().to(signup::post)),
             web::resource("/logout")
                 .route(web::delete().to(logout::delete)),
             // default page

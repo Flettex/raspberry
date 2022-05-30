@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignUp</title>
+</head>
+<body>
+    <form id="frm">
+        <input id="u" type="username" placeholder="Type a username" required>
+        <input id="e" type="email" placeholder="Type an email" required>
+        <input id="p" type="password" placeholder="Type a password" required>
+        <button type="submit">Submit</button>
+    </form>
+    <script>
+    
+        function gebi(id) {
+            return document.getElementById(id);
+        }
+
+        document.getElementById("frm").onsubmit = function (e) {
+            e.preventDefault();
+            fetch("/signup", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    username: gebi("u").value,
+                    email: gebi("e").value,
+                    password: gebi("p").value
+                })
+            }).then((res) => {
+                if (res.ok) {
+                    window.location.href = "/chat";
+                }
+            });
+        }
+    </script>
+</body>
+</html>

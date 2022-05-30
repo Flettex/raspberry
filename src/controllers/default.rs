@@ -10,7 +10,7 @@ pub async fn all(req: HttpRequest) -> HttpResponse {
     if req.method() == "GET" {
         HttpResponse::build(StatusCode::NOT_FOUND)
             .content_type(ContentType::html())
-            .body(html::DEFAULT_PAGE_HTML)
+            .body(html::DEFAULT)
     } else {
         HttpResponse::NotFound().finish()
     }

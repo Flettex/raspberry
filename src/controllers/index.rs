@@ -5,15 +5,7 @@ use actix_web::{
     web,
 };
 
-use crate::html;
 use crate::server;
-
-pub async fn get() -> impl Responder {
-    HttpResponse::Ok()
-        .content_type("text/html")
-        .body(html::HTML_STR)
-    // NamedFile::open_async("./test/index.html").await.unwrap()
-}
 
 pub async fn post(
     body: web::Json<server::ClientEvent>,
