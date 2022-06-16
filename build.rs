@@ -1,14 +1,15 @@
 use std::fs::{
     File,
-    read_to_string
+    read_to_string,
+    read_dir,
 };
-use std::fs;
+use std::path::Path;
 
 use std::io::{Write, Error};
 
 fn main() -> Result<(), Error> {
-    let paths = fs::read_dir("src/views").unwrap();
-    let mut contents = "".to_owned();
+    let paths = read_dir("src/views").unwrap();
+    let mut contents = "".to_string();
 
     for path in paths {
         let path_name = &path.as_ref().unwrap().path().display().to_string();
@@ -16,9 +17,14 @@ fn main() -> Result<(), Error> {
             .expect(path_name);
         contents.push_str(&format!("pub static {}: &str = r#\"{}\"#;", path.unwrap().file_name().to_str().unwrap().replace(".html", "").to_ascii_uppercase(), content.lines().map(|s| s.trim()).filter(|s| !s.is_empty()).collect::<Vec<&str>>().join("")));
     }
-    if contents != read_to_string("src/html.rs")? {
+    if Path::new("src/html.rs").exists() {
+        if contents != read_to_string("src/html.rs")? {
+            let mut output = File::create("src/html.rs")?;
+            write!(output, "{}", contents)?;
+        }
+    } else {
         let mut output = File::create("src/html.rs")?;
-        write!(output, "{}", contents)?;
+        write!(output, "{}", contents)?; 
     }
     Ok(())
 }

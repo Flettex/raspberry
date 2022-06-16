@@ -42,12 +42,6 @@ struct WsDevice {
     browser: String
 }
 
-// #[derive(Serialize, Deserialize, Clone)]
-// struct WsAuthMsg {
-//     password: String,
-//     cred: WsDevice
-// }
-
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(tag = "type", content = "data")]
 enum WsReceiveTypes {
@@ -55,8 +49,6 @@ enum WsReceiveTypes {
     MessageUpdate(WsMessageUpdate),
     // {"type":"MessageCreate", "data":{"content":""}}
     MessageCreate(WsMessageCreate),
-    // {"type":"Auth", "data":{"token":"123","cred":{"os":"1", "device":"2", "browser":"3"}}}
-    /* Auth(WsAuthMsg), */
     // {"type":"Null"}
     // used for testing purposes
     Null
@@ -67,7 +59,6 @@ impl fmt::Display for WsReceiveTypes {
         match self {
             WsReceiveTypes::MessageCreate(msg) => write!(f, "{}", msg.content),
             WsReceiveTypes::MessageUpdate(msg) => write!(f, "Updating {} to {}", msg.id, msg.content),
-            // WsReceiveTypes::Auth(msg) => write!(f, "{{\"password\":\"{t}\",\"cred\":{{\"os\":\"{os}\",\"browser\":\"{browser}\",\"device\":\"{device}\"}}}}", t=msg.password, os=msg.cred.os, browser=msg.cred.browser, device=msg.cred.device),
             WsReceiveTypes::Null => write!(f, "{}", "null"),
         }
     }
@@ -84,10 +75,6 @@ pub struct WsChatSession {
     pub name: Option<String>,
 
     pub addr: Addr<server::ChatServer>,
-
-    // pub authenticated: bool,
-
-    // pub handle: Option<SpawnHandle>,
 
     pub pool: PgPool,
 
@@ -191,17 +178,6 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                 println!("{}", val);
                 let m = text.trim();
                 match val {
-                    // WsReceiveTypes::Auth(pl) => {
-                    //     if !self.authenticated {
-                    //         match self.handle {
-                    //             Some(h) => {
-                    //                 ctx.cancel_future(h);
-                    //             }
-                    //             None => ()
-                    //         };
-                    //         self.authenticated = true;
-                    //     }
-                    // }
                     WsReceiveTypes::MessageCreate(m) => {
                         let msg = if let Some(ref name) = self.name {
                             format!("{}: {}", name, m.content)
