@@ -6,6 +6,8 @@ COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS builder
+ARG DATABASE_URL
+ENV DATABASE_URL=$DATABASE_URL
 COPY --from=planner /raspberry/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
@@ -15,4 +17,4 @@ FROM debian:bullseye-slim AS runtime
 WORKDIR /raspberry
 COPY --from=builder /raspberry/target/release/raspberry-backend-app /usr/local/bin
 EXPOSE 8080
-ENTRYPOINT ["/usr/local/bin/raspberry-backend-app"]
+ENTRYPOINT ["/bin/sh", "-c" , "export $(cat .env.prod | xargs) && /usr/local/bin/raspberry-backend-app"]

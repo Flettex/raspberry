@@ -1,5 +1,7 @@
 -- Add migration script here
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Ok so, production database DOES NOT SUPPORT uuid-ossp. UUID type is default. Uncomment this if migrating locally.
+-- CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- idk how to make many to many relationships
 
