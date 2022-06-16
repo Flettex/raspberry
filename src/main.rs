@@ -37,6 +37,8 @@ async fn main() -> std::io::Result<()> {
 
     let app_state = Arc::new(AtomicUsize::new(0));
 
+    log::info!("{}", &env::var("DATABASE_URL").unwrap_or("postgres://postgres:1234@localhost:5432/flettex".to_string()));
+
     let pool: PgPool = PgPool::connect(
         &env::var("DATABASE_URL")
             .unwrap_or("postgres://postgres:1234@localhost:5432/flettex".to_string()),
