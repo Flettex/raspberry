@@ -17,4 +17,4 @@ FROM debian:bullseye-slim AS runtime
 WORKDIR /raspberry
 COPY --from=builder /raspberry/target/release/raspberry-backend-app /usr/local/bin
 EXPOSE 8080
-ENTRYPOINT ["/bin/sh", "-c" , "export $(cat .env.prod | xargs) && /usr/local/bin/raspberry-backend-app"]
+ENTRYPOINT ["/usr/local/bin/raspberry-backend-app"]
