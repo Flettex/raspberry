@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
     description     TEXT CHECK (char_length(description) <= 255),
     allow_login     BOOLEAN NOT NULL DEFAULT TRUE,
     is_online       BOOLEAN NOT NULL DEFAULT FALSE,
+    last_online     TIMESTAMP NULL,
     is_staff        BOOLEAN NOT NULL DEFAULT FALSE,
     is_superuser    BOOLEAN NOT NULL DEFAULT FALSE
 );
@@ -29,6 +30,15 @@ CREATE TABLE IF NOT EXISTS todos (
     id              BIGSERIAL PRIMARY KEY,
     description     TEXT NOT NULL,
     done            BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE TYPE relation_type AS ENUM ('outgoing', 'ongoing', 'friend', 'block');
+
+CREATE TABLE "user_relations" (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid (),
+  user1 BIGINT NOT NULL REFERENCES users(id),
+  user2 BIGINT NOT NULL REFERENCES users(id),
+  relationship relation_type
 );
 
 CREATE TABLE IF NOT EXISTS posts (
