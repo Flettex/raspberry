@@ -1,6 +1,6 @@
 -- Add migration script here
 
--- NOTE: The order matters
+-- NOTE: The order matters because some tables depend on other tables
 DROP TABLE IF EXISTS user_sessions;
 DROP TABLE IF EXISTS posts;
 DROP TABLE IF EXISTS todos;
