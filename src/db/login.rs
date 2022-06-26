@@ -24,13 +24,13 @@ RETURNING session_id
 pub async fn get_user_and_password(email: String, pool: &PgPool) -> sqlx::Result<(i64, String)> {
     match sqlx::query!(
         r#"
-SELECT user_id, password FROM users WHERE email = $1
+SELECT id, password FROM users WHERE email = $1
         "#,
         email
     )
     .fetch_one(pool)
     .await {
-        Ok(rec) => Ok((rec.user_id, rec.password)),
+        Ok(rec) => Ok((rec.id, rec.password)),
         Err(err) => Err(err)
     }
 }

@@ -29,7 +29,7 @@ pub async fn create_user(username: String, email: String, password_hash: String,
         r#"
 INSERT INTO users ( username, email, password )
 VALUES ( $1, $2, $3 )
-RETURNING user_id
+RETURNING id
         "#,
         username,
         email,
@@ -46,7 +46,7 @@ INSERT INTO user_sessions ( userid )
 VALUES ( $1 )
 RETURNING session_id
                     "#,
-                    rec.user_id
+                    rec.id
                 )
                 .fetch_one(pool)
                 .await?
