@@ -4,11 +4,17 @@ use std::{
         atomic::{AtomicUsize, Ordering},
         Arc,
     },
-    clone::Clone
+    clone::Clone,
+};
+
+use sqlx::types::chrono::{
+    NaiveDateTime,
+    DateTime
 };
 
 use actix::prelude::*;
 use serde::{Serialize, Deserialize};
+use serde_json;
 use rand::{self, rngs::ThreadRng, Rng};
 
 #[derive(Message)]
@@ -27,6 +33,72 @@ pub struct Connect {
 #[rtype(result = "()")]
 pub struct Disconnect {
     pub id: usize,
+}
+
+mod date_format {
+    use crate::server::{
+        NaiveDateTime,
+        DateTime
+    };
+    use serde::{self, Deserialize, Deserializer, Serializer, de::Error};
+    const FORMAT: &str = "%+";
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<NaiveDateTime>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let time: String = Deserialize::deserialize(deserializer)?;
+		Ok(Some(DateTime::parse_from_rfc3339(&time).map_err(D::Error::custom)?.naive_utc()))
+    }
+
+    pub fn serialize<S>(
+        date: &Option<NaiveDateTime>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if let Some(date) = date {
+            let s = format!("{}", date.format(FORMAT));
+            serializer.serialize_str(&s)
+        } else {
+            serializer.serialize_str("")
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct User {
+    pub id: i64,
+    pub username: String,
+    pub email: String,
+    pub password: String,
+    pub profile: Option<String>,
+    #[serde(with = "date_format")]
+    pub created_at: Option<NaiveDateTime>,
+    pub description: Option<String>,
+    pub allow_login: bool,
+    pub is_online: bool,
+    pub is_staff: bool,
+    pub is_superuser: bool
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Guild {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub icon: String,
+    #[serde(with = "date_format")]
+    pub created_at: Option<NaiveDateTime>,
+    pub creator_id: i64
+}
+
+#[derive(Serialize, Deserialize, Message)]
+#[rtype(result = "()")]
+pub struct ReadyEvent {
+    pub user: User,
+    pub guilds: Vec<Guild>
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -137,6 +209,16 @@ impl ChatServer {
 
 impl Actor for ChatServer {
     type Context = Context<Self>;
+}
+
+impl Handler<ReadyEvent> for ChatServer {
+    type Result = ();
+
+    fn handle(&mut self, msg: ReadyEvent, _: &mut Context<Self>) -> Self::Result {
+        println!("Ready Event");
+
+        self.send_message("Main", &serde_json::to_string(&msg).unwrap(), 0);
+    }
 }
 
 impl Handler<Connect> for ChatServer {

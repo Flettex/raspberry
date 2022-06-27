@@ -2,6 +2,8 @@
 
 -- NOTE: The order matters because some tables depend on other tables
 DROP TABLE IF EXISTS user_sessions;
+DROP TABLE IF EXISTS user_relations;
+DROP TYPE IF EXISTS relation_type;
 DROP TABLE IF EXISTS posts;
 DROP TABLE IF EXISTS todos;
 DROP TABLE IF EXISTS "message";

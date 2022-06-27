@@ -4,6 +4,7 @@ use actix::prelude::*;
 use actix_web_actors::ws;
 
 use crate::server;
+use crate::db::ws_session;
 
 use serde::{Serialize, Deserialize};
 use serde_json::{json};
@@ -118,19 +119,27 @@ impl Actor for WsChatSession {
         // }));
 
         let addr = ctx.address();
+    
+        // doesn't work bru
+    
+        // self.addr.do_send(server::ReadyEvent {
+        //     user: ws_session::get_user_by_session_id(self.session_id.clone(), &self.pool).await.unwrap(),
+        //     guilds: vec![]
+        // });
+
         self.addr
-            .send(server::Connect {
-                addr: addr.recipient(),
-            })
-            .into_actor(self)
-            .then(|res, act, ctx| {
-                match res {
-                    Ok(res) => act.id = res,
-                    _ => ctx.stop(),
-                }
-                fut::ready(())
-            })
-            .wait(ctx);
+        .send(server::Connect {
+            addr: addr.recipient(),
+        })
+        .into_actor(self)
+        .then(|res, act, ctx| {
+            match res {
+                Ok(res) => act.id = res,
+                _ => ctx.stop(),
+            }
+            fut::ready(())
+        })
+        .wait(ctx);
     }
 
     fn stopping(&mut self, _: &mut Self::Context) -> Running {
