@@ -47,6 +47,16 @@ async fn main() -> std::io::Result<()> {
     .await
     .expect("Failed to create pool");
 
+    let pool2 = pool.clone();
+
+    actix_web::rt::spawn(async move {
+        sqlx::query!(
+            r#"
+DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
+            "#
+        ).execute(&pool2).await.unwrap();
+    });
+
     let server = Chat::new(app_state.clone());
 
     let is_dev = match env::var("RAILWAY_STATIC_URL") {

@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS user_sessions (
     "session_id"      uuid PRIMARY KEY DEFAULT gen_random_uuid (),
     "userid"          BIGINT NOT NULL,
+    "last_login"      TIMESTAMP DEFAULT current_timestamp,
     CONSTRAINT fk_user_sessions FOREIGN KEY(userid) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -96,7 +97,7 @@ CREATE TABLE IF NOT EXISTS "invite" (
     "guild_id"   uuid NOT NULL UNIQUE REFERENCES guild(id) ON DELETE CASCADE
 );
 
-CREATE TYPE IF NOT EXISTS relation_type AS ENUM ('outgoing', 'ongoing', 'friend', 'block');
+CREATE TYPE relation_type AS ENUM ('outgoing', 'ongoing', 'friend', 'block');
 
 CREATE TABLE IF NOT EXISTS "user_relations" (
     "id"              uuid PRIMARY KEY DEFAULT gen_random_uuid (),

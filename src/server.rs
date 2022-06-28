@@ -71,7 +71,9 @@ pub struct User {
 pub struct UserSession {
     #[serde(with = "format::uid_format")]
     pub session_id: Uuid,
-    pub userid: i64
+    pub userid: i64,
+    #[serde(with = "format::date_format")]
+    pub last_login: Option<NaiveDateTime>
 }
 
 #[derive(Serialize, Deserialize)]
