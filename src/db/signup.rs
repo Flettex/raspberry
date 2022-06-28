@@ -24,7 +24,7 @@ pub fn create_password(password: String) -> Result<String, Error> {
     }
 }
 
-pub async fn create_user(username: String, email: String, password_hash: String, pool: &PgPool) -> sqlx::Result<Uuid> {
+pub async fn create_user(username: String, email: String, password_hash: String, pool: &PgPool) -> sqlx::Result<(Uuid, i64)> {
     match sqlx::query!(
         r#"
 INSERT INTO users ( username, email, password )
@@ -40,17 +40,20 @@ RETURNING id
         Ok(rec) => {
             Ok(
                 // this query cannot error...
-                sqlx::query!(
-                    r#"
-INSERT INTO user_sessions ( userid )
-VALUES ( $1 )
-RETURNING session_id
-                    "#,
+                (
+                    sqlx::query!(
+                        r#"
+    INSERT INTO user_sessions ( userid )
+    VALUES ( $1 )
+    RETURNING session_id
+                        "#,
+                        rec.id
+                    )
+                    .fetch_one(pool)
+                    .await?
+                    .session_id,
                     rec.id
                 )
-                .fetch_one(pool)
-                .await?
-                .session_id
             )
         }
         Err(e) => Err(e),

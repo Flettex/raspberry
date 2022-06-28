@@ -1,6 +1,8 @@
-use std::time::Instant;
+use std::{
+    sync::Arc,
+    time::{Instant}
+};
 
-use actix::Addr;
 use actix_web::{
     web,
     HttpRequest,
@@ -8,35 +10,56 @@ use actix_web::{
     Error
 };
 use actix_identity::Identity;
-use actix_web_actors::ws;
+// use actix_ws::{Message};
+// use actix_rt;
+use tokio::sync::Mutex;
+// use futures::StreamExt;
+use futures::future;
 
 use sqlx::PgPool;
 
-use crate::server;
-use crate::session;
+use crate::{
+    server::{
+        self,
+        // MessageTypes,
+        // MessageCreateType,
+        AuthCookie
+    },
+    session::{
+        WsChatSession
+    }
+};
 
 pub async fn get(
     req: HttpRequest,
     stream: web::Payload,
-    srv: web::Data<Addr<server::ChatServer>>,
+    srv: web::Data<server::Chat>,
     pool: web::Data<PgPool>,
     id: Identity,
 ) -> Result<HttpResponse, Error> {
-    // println!("{}", pool.is_closed());
     if let Some(session_id) = id.identity() {
-        ws::start(
-            session::WsChatSession {
-                id: 0,
-                hb: Instant::now(),
+        let (response, session, stream) = actix_ws::handle(&req, stream)?;
+        let session_cookie: AuthCookie = serde_json::from_str(&session_id).unwrap();
+        srv.insert(session_cookie.user_id.try_into().unwrap(), session.clone()).await;
+        log::info!("Inserted session");
+        let alive = Arc::new(Mutex::new(Instant::now()));
+        
+        actix_rt::spawn(async move {
+            let chat_session = WsChatSession {
+                id: session_cookie.user_id.try_into().unwrap(),
                 room: "Main".to_owned(),
                 name: None,
-                addr: srv.get_ref().clone(),
-                pool: pool.get_ref().clone(),
-                session_id: session_id,
-            },
-            &req,
-            stream,
-        )
+                srv: srv.as_ref().clone(),
+                pool: pool.as_ref().clone(),
+                alive,
+                session,
+                session_id,
+                stream: Arc::new(Mutex::new(stream))
+            };
+            future::join(chat_session.hb(), chat_session.start()).await;
+        });
+        log::info!("Spawned");
+        Ok(response)
     } else {
         Ok(HttpResponse::Ok().finish())
     }

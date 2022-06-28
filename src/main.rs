@@ -6,7 +6,6 @@ use std::{
     },
 };
 
-use actix::*;
 use actix_identity::{CookieIdentityPolicy, IdentityService};
 use actix_web::{
     web,
@@ -18,18 +17,20 @@ use actix_web::{
 
 use sqlx::postgres::PgPool;
 
+use self::server::Chat;
+
 // self use
 mod controllers;
 mod server;
+mod session;
 mod test;
 
 // for controllers
 mod db;
-mod session;
+// mod session;
 // test views for debugging purposes...
 mod html;
-
-use self::server::ChatServer;
+mod format;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -46,7 +47,7 @@ async fn main() -> std::io::Result<()> {
     .await
     .expect("Failed to create pool");
 
-    let server = ChatServer::new(app_state.clone()).start();
+    let server = Chat::new(app_state.clone());
 
     let is_dev = match env::var("RAILWAY_STATIC_URL") {
         Ok(_) => false,
@@ -54,9 +55,9 @@ async fn main() -> std::io::Result<()> {
     };
 
     log::info!(
-        "{:?}",
+        "{}",
         format!(
-            "starting HTTP server at {:?}",
+            "starting HTTP server at {}",
             if is_dev {
                 "http://localhost:8080"
             } else {

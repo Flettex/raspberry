@@ -10,6 +10,7 @@ use crate::db::signup::{
     create_user,
     create_password
 };
+use serde_json::json;
 
 pub async fn post(
     body: web::Json<server::SignUpEvent>,
@@ -23,8 +24,11 @@ pub async fn post(
     match create_password(pl.password) {
         Ok(password_hash) => {
             match create_user(pl.username, pl.email, password_hash, pool.as_ref()).await {
-                Ok(session_id) => {
-                    id.remember(session_id.to_string());
+                Ok((session_id, user_id)) => {
+                    id.remember(json!({
+                        "user_id": user_id,
+                        "session_id": session_id.to_string()
+                    }).to_string());
                     HttpResponse::Ok().finish()
                 }
                 Err(err) => match err {

@@ -12,6 +12,7 @@ pub mod index;
 pub mod ws;
 pub mod count;
 pub mod default;
+pub mod admin;
 use crate::html;
 
 macro_rules! view {
@@ -45,9 +46,11 @@ pub fn config(cfg: &mut web::ServiceConfig) {
                 .route(web::get().to(ws::get)),
             web::resource("/logout")
                 .route(web::delete().to(logout::delete)),
+            web::resource("/admin")
+                .route(web::get().to(admin::get)),
             // default page
             web::scope("")
-                .default_service(web::to(default::all))
+                .default_service(web::to(default::all)),
         ]
     );
 }

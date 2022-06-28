@@ -12,6 +12,7 @@ use argon2::{
 };
 
 use sqlx::postgres::PgPool;
+use serde_json::json;
 
 use crate::server;
 use crate::db;
@@ -31,7 +32,10 @@ pub async fn post(
             if argon2.verify_password(pl.password.as_bytes(), &PasswordHash::new(&password).unwrap()).is_ok() {
                 match db::login::create_session(user_id, pool.as_ref()).await {
                     Ok(session_id) => {
-                        id.remember(session_id.to_string());
+                        id.remember(json!({
+                            "user_id": user_id,
+                            "session_id": session_id.to_string()
+                        }).to_string());
                         HttpResponse::Ok().finish()
                     }
                     Err(err) => {

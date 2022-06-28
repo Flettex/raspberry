@@ -1,51 +1,45 @@
-use std::time::{Duration, Instant};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant}
+};
 
-use actix::prelude::*;
-use actix_web_actors::ws;
-
-use crate::server;
-use crate::db::ws_session;
+use crate::server::{
+    self,
+    MessageTypes,
+    MessageCreateType
+};
+use actix_rt;
+use actix_ws::{Session, MessageStream, Message};
+use tokio::sync::Mutex;
 
 use serde::{Serialize, Deserialize};
-use serde_json::{json};
+// use serde_json::{json};
 use std::fmt;
+use futures::StreamExt;
 
 use sqlx::postgres::PgPool;
 
-fn format_m(content: &str) -> String {
-    json!({
-        "data": {
-            "content": content
-        },
-        "type": "MessageCreate"
-    }).to_string()
-}
-
-const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
-
-const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
-
 #[derive(Serialize, Deserialize, Clone)]
-struct WsMessageCreate {
-    content: String
+pub struct WsMessageCreate {
+    pub content: String
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-struct WsMessageUpdate {
-    id: usize,
-    content: String
+pub struct WsMessageUpdate {
+    pub id: usize,
+    pub content: String
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-struct WsDevice {
-    os: String,
-    device: String,
-    browser: String
+pub struct WsDevice {
+    pub os: String,
+    pub device: String,
+    pub browser: String
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(tag = "type", content = "data")]
-enum WsReceiveTypes {
+pub enum WsReceiveTypes {
     // {"type":"MessageUpdate", "data":{"content":"",id:1}}
     MessageUpdate(WsMessageUpdate),
     // {"type":"MessageCreate", "data":{"content":""}}
@@ -65,212 +59,184 @@ impl fmt::Display for WsReceiveTypes {
     }
 }
 
-#[derive(Debug)]
 pub struct WsChatSession {
     pub id: usize,
-
-    pub hb: Instant,
 
     pub room: String,
 
     pub name: Option<String>,
 
-    pub addr: Addr<server::ChatServer>,
+    pub srv: server::Chat,
 
     pub pool: PgPool,
 
     pub session_id: String,
+
+    pub session: Session,
+
+    pub alive: Arc<Mutex<Instant>>,
+
+    pub stream: Arc<Mutex<MessageStream>>
 }
 
 impl WsChatSession {
-    fn hb(&self, ctx: &mut ws::WebsocketContext<Self>) {
-        ctx.run_interval(HEARTBEAT_INTERVAL, |act, ctx| {
-            if Instant::now().duration_since(act.hb) > CLIENT_TIMEOUT {
-                println!("Websocket Client heartbeat failed, disconnecting!");
-
-                act.addr.do_send(server::Disconnect { id: act.id });
-
-                ctx.stop();
-
-                return;
+    pub async fn hb(&self) {
+        let mut session = self.session.clone();
+        let mut interval = actix_rt::time::interval(Duration::from_secs(5));
+        loop {
+            interval.tick().await;
+            if session.ping(b"").await.is_err() {
+                break;
             }
-
-            ctx.ping(b"");
-        });
+            if Instant::now().duration_since(*self.alive.lock().await) > Duration::from_secs(10) {
+                // disconnect
+                let _ = session.close(None).await;
+                break;
+            }
+        }
     }
 
-    fn decode_json(&self, s: &str) -> serde_json::Result<WsReceiveTypes> {
-        serde_json::from_str(s)
-    }
-}
-
-impl Actor for WsChatSession {
-    type Context = ws::WebsocketContext<Self>;
-
-    fn started(&mut self, ctx: &mut Self::Context) {
-        self.hb(ctx);
-        
-        // self.handle = Some(ctx.run_later(Duration::from_secs(30), |_, ctx| {
-        //     ctx.close(Some(ws::CloseReason{
-        //         code: ws::CloseCode::from(4001),
-        //         description: Some("Authentication payload was not provided on time.".to_string())
-        //     }));
-        //     ctx.stop();
-        // }));
-
-        let addr = ctx.address();
-    
-        // doesn't work bru
-    
-        // self.addr.do_send(server::ReadyEvent {
-        //     user: ws_session::get_user_by_session_id(self.session_id.clone(), &self.pool).await.unwrap(),
-        //     guilds: vec![]
-        // });
-
-        self.addr
-        .send(server::Connect {
-            addr: addr.recipient(),
-        })
-        .into_actor(self)
-        .then(|res, act, ctx| {
-            match res {
-                Ok(res) => act.id = res,
-                _ => ctx.stop(),
-            }
-            fut::ready(())
-        })
-        .wait(ctx);
-    }
-
-    fn stopping(&mut self, _: &mut Self::Context) -> Running {
-        self.addr.do_send(server::Disconnect { id: self.id });
-        Running::Stop
-    }
-}
-
-impl Handler<server::Message> for WsChatSession {
-    type Result = ();
-
-    fn handle(&mut self, msg: server::Message, ctx: &mut Self::Context) {
-        ctx.text(json!(msg.data).to_string());
-    }
-}
-
-impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
-    fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
-        let msg = match msg {
-            Err(_) => {
-                ctx.stop();
-                return;
-            }
-            Ok(msg) => msg,
-        };
-
-        log::debug!("WEBSOCKET MESSAGE: {:?}", msg);
-        match msg {
-            ws::Message::Ping(msg) => {
-                self.hb = Instant::now();
-                ctx.pong(&msg);
-            }
-            ws::Message::Pong(_) => {
-                self.hb = Instant::now();
-            }
-            ws::Message::Text(text) => {
-                let val = match self.decode_json(text.trim()) {
-                    Err(err) => {
-                        println!("{}", err);
-                        WsReceiveTypes::Null
+    pub async fn start(&self) {
+        // connect
+        // self.srv.inner.rooms
+        //     .entry("Main".to_owned())
+        //     .or_insert_with(HashSet::new)
+        //     .insert(id);
+        let mut stream = self.stream.lock().await;
+        let mut session = self.session.clone();
+        while let Some(Ok(msg)) = stream.next().await {
+            log::debug!("WEBSOCKET MESSAGE: {:?}", msg);
+            match msg {
+                Message::Ping(bytes) => {
+                    if session.pong(&bytes).await.is_err() {
+                        return;
                     }
-                    Ok(val) => val,
-                };
-                println!("{}", val);
-                let m = text.trim();
-                match val {
-                    WsReceiveTypes::MessageCreate(m) => {
-                        let msg = if let Some(ref name) = self.name {
-                            format!("{}: {}", name, m.content)
-                        } else {
-                            m.content.to_owned()
-                        };
-                        log::info!("{} {}", msg, self.id);
-                        self.addr.do_send(server::ClientMessage {
-                            id: self.id,
-                            msg,
-                            room: self.room.clone(),
-                        })
-                    }
-                    WsReceiveTypes::MessageUpdate(_) => {
-                        // update msg
-                    }
-                    WsReceiveTypes::Null => {
-                        if m.starts_with('/') {
-                            let v: Vec<&str> = m.splitn(2, ' ').collect();
-                            match v[0] {
-                                "/list" => {
-                                    println!("List rooms");
-                                    self.addr
-                                        .send(server::ListRooms)
-                                        .into_actor(self)
-                                        .then(|res, _, ctx| {
-                                            match res {
-                                                Ok(rooms) => {
-                                                    for room in rooms {
-                                                        ctx.text(format_m(&room));
-                                                    }
-                                                }
-                                                _ => println!("Something is wrong"),
-                                            }
-                                            fut::ready(())
-                                        })
-                                        .wait(ctx)
-                                }
-                                "/join" => {
-                                    if v.len() == 2 {
-                                        self.room = v[1].to_owned();
-                                        self.addr.do_send(server::Join {
-                                            id: self.id,
-                                            name: self.room.clone(),
-                                        });
-        
-                                        ctx.text(format_m("joined"));
-                                    } else {
-                                        ctx.text(format_m("!!! room name is required"));
-                                    }
-                                }
-                                "/name" => {
-                                    if v.len() == 2 {
-                                        self.name = Some(v[1].to_owned());
-                                    } else {
-                                        ctx.text(format_m("!!! name is required"));
-                                    }
-                                }
-                                _ => ctx.text(format_m(&format!("!!! unknown command: {:?}", m))),
-                            }
-                        } else {
+                }
+                Message::Pong(_) => {
+                    *self.alive.lock().await = Instant::now();
+                }
+                Message::Text(s) => {
+                    log::info!("Relaying text, {}", s);
+                    let s: &str = s.as_ref();
+                    self.srv.send(MessageTypes::MessageCreate(MessageCreateType{content: s.into()})).await;
+                    self.srv.send_message("Main", MessageTypes::MessageCreate(MessageCreateType{content: s.into()})).await;
+                    let val = match self.decode_json(s.trim()) {
+                        Err(err) => {
+                            println!("{}", err);
+                            WsReceiveTypes::Null
+                        }
+                        Ok(val) => val,
+                    };
+                    println!("{}", val);
+                    match val {
+                        WsReceiveTypes::MessageCreate(m) => {
                             let msg = if let Some(ref name) = self.name {
-                                format!("{}: {}", name, m)
+                                format!("{}: {}", name, m.content)
                             } else {
-                                m.to_owned()
+                                m.content.to_owned()
                             };
                             log::info!("{} {}", msg, self.id);
-                            self.addr.do_send(server::ClientMessage {
-                                id: self.id,
-                                msg,
-                                room: self.room.clone(),
-                            })
+                            self.srv.send_message(&self.room, MessageTypes::MessageCreate(MessageCreateType {content: msg.to_string()})).await
+                        }
+                        WsReceiveTypes::MessageUpdate(_) => {
+                            // update msg
+                        }
+                        WsReceiveTypes::Null => {
+                            if s.starts_with('/') {
+                                let v: Vec<&str> = s.splitn(2, ' ').collect();
+                                match v[0] {
+                                    "/list" => {
+                                        println!("List rooms");
+                                        // self.srv
+                                        //     .send(server::ListRooms)
+                                        //     .into_actor(self)
+                                        //     .then(|res, _, ctx| {
+                                        //         match res {
+                                        //             Ok(rooms) => {
+                                        //                 for room in rooms {
+                                        //                     ctx.text(format_m(&room));
+                                        //                 }
+                                        //             }
+                                        //             _ => println!("Something is wrong"),
+                                        //         }
+                                        //         fut::ready(())
+                                        //     })
+                                        //     .wait(ctx)
+                                    }
+                                    "/join" => {
+                                        if v.len() == 2 {
+                                            // *self.room = v[1].to_owned();
+                                            self.srv.send_message(&self.room, MessageTypes::MessageCreate(MessageCreateType {content: "joined".to_string()})).await;
+                                        } else {
+                                            self.srv.send_message(&self.room, MessageTypes::MessageCreate(MessageCreateType {content: "!!! room name is required".to_string()})).await;
+                                        }
+                                    }
+                                    "/name" => {
+                                        if v.len() == 2 {
+                                            // *self.name = Some(v[1].to_owned());
+                                        } else {
+                                            self.srv.send_message(&self.room, MessageTypes::MessageCreate(MessageCreateType {content: "!!! name is required".to_string()})).await;
+                                        }
+                                    }
+                                    _ => self.srv.send_message(&self.room, MessageTypes::MessageCreate(MessageCreateType {content: format!("!!! unknown command {:?}", s)})).await,
+                                }
+                            } else {
+                                let msg = if let Some(ref name) = self.name {
+                                    format!("{}: {}", name, s)
+                                } else {
+                                    s.to_owned()
+                                };
+                                log::info!("{} {}", msg, self.id);
+                                self.srv.send_message(&self.room, MessageTypes::MessageCreate(MessageCreateType {content: msg})).await
+                            }
                         }
                     }
                 }
+                Message::Binary(_) => println!("Unexpected binary"),
+                Message::Close(reason) => {
+                    let _ = session.close(reason).await;
+                    log::info!("Got close, bailing");
+                    return;
+                }
+                Message::Continuation(_) => {
+                    let _ = session.close(None).await;
+                    log::info!("Got continuation, bailing");
+                    return;
+                }
+                Message::Nop => (),
             }
-            ws::Message::Binary(_) => println!("Unexpected binary"),
-            ws::Message::Close(reason) => {
-                ctx.close(reason);
-                ctx.stop();
-            }
-            ws::Message::Continuation(_) => {
-                ctx.stop();
-            }
-            ws::Message::Nop => (),
+            // match msg {
+            //     Message::Ping(bytes) => {
+            //         if session.pong(&bytes).await.is_err() {
+            //             return;
+            //         }
+            //     }
+            //     Message::Text(s) => {
+            //         log::info!("Relaying text, {}", s);
+            //         let s: &str = s.as_ref();
+            //         self.srv.send(MessageTypes::MessageCreate(MessageCreateType{content: s.into()})).await;
+            //     }
+            //     Message::Close(reason) => {
+            //         let _ = session.close(reason).await;
+            //         log::info!("Got close, bailing");
+            //         return;
+            //     }
+            //     Message::Continuation(_) => {
+            //         let _ = session.close(None).await;
+            //         log::info!("Got continuation, bailing");
+            //         return;
+            //     }
+            //     Message::Pong(_) => {
+            //         *self.alive.lock().await = Instant::now();
+            //     }
+            //     Message::Binary(_) => println!("Unexpected binary"),
+            //     _ => (),
+            // };
         }
+        let _ = session.close(None).await;
+    }
+
+    pub fn decode_json(&self, s: &str) -> serde_json::Result<WsReceiveTypes> {
+        serde_json::from_str(s)
     }
 }
