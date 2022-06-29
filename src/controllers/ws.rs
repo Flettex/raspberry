@@ -44,11 +44,11 @@ pub async fn get(
         log::info!("Inserted session");
         let alive = Arc::new(Mutex::new(Instant::now()));
         
-        actix_rt::spawn(async move {
+        actix_web::rt::spawn(async move {
             let chat_session = WsChatSession {
                 id: session_cookie.user_id.try_into().unwrap(),
-                room: "Main".to_owned(),
-                name: None,
+                rooms: Arc::new(Mutex::new(vec!["Main".to_owned()])),
+                name: Arc::new(Mutex::new(None)),
                 srv: srv.as_ref().clone(),
                 pool: pool.as_ref().clone(),
                 alive,

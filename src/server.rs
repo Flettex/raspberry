@@ -135,16 +135,60 @@ impl Chat {
         }
     }
 
+    pub async fn list_rooms(&self) -> Vec<String> {
+        let mut rooms = Vec::new();
+        let inner = self.inner.lock().await;
+
+        for key in inner.rooms.keys() {
+            rooms.push(key.to_owned())
+        }
+
+        rooms
+    }
+
+    pub async fn join_room(&self, room: String, user_id: usize) {
+        log::info!("{} id joining room {}", user_id, room);
+        let mut rooms = Vec::new();
+        // drop MutexGuard
+        {
+            let mut inner = self.inner.lock().await;
+
+            for (n, sessions) in &mut inner.rooms {
+                if sessions.remove(&user_id) {
+                    rooms.push(n.to_owned());
+                }
+            }
+
+            inner.rooms
+                .entry(room.clone())
+                .or_insert_with(HashSet::new)
+                .insert(user_id);    
+        }
+
+        log::info!("ROOMS: {:?}", rooms);
+        for room in rooms {
+            self.send_message(&room, MessageTypes::MessageCreate(MessageCreateType{content: "Someone disconnected".to_string()})).await;
+        }
+
+        self.send_message(&room, MessageTypes::MessageCreate(MessageCreateType{content: "Someone connected".to_string()})).await;
+    }
+
     pub async fn insert(&self, user_id: usize, session: Session) {
         let mut inner = self.inner.lock().await;
-        let values = inner.sessions.entry(user_id).or_insert_with(|| Vec::new());
+        let values = inner.sessions.entry(user_id).or_insert_with(Vec::new);
         values.push(session);
+    }
+
+    pub async fn insert_id(&self, room: String, user_id: usize) {
+        let mut inner = self.inner.lock().await;
+        let values = inner.rooms.entry(room).or_insert_with(HashSet::new);
+        values.insert(user_id);
     }
 
     // send global.
     pub async fn send(&self, msg: MessageTypes) {
         let mut inner = self.inner.lock().await;
-        let mut unordered = FuturesUnordered::new();
+        let unordered = FuturesUnordered::new();
         for (user_id, sessions) in inner.sessions.drain() {
             let msg = msg.clone();
             unordered.push(async move {
@@ -156,24 +200,33 @@ impl Chat {
                 (user_id, results)
             });
         }
-        while let Some((user_id, results)) = unordered.next().await {
+        drop(inner);
+        let res = unordered.collect::<Vec<(usize, Vec<Result<Session, ()>>)>>().await;
+        let mut inner = self.inner.lock().await;
+        for (user_id, results) in res {
             inner.sessions.insert(user_id, results.into_iter().filter_map(|i| i.ok()).collect());
         }
     }
 
+    // send a message to a room
     // can add a skip_id parameter
     pub async fn send_message(&self, room: &str, message: MessageTypes) {
         let mut inner = self.inner.lock().await;
+        let unordered = FuturesUnordered::new();
+        log::info!("SENDING TO ROOM: {}", room);
         if let Some(users) = inner.rooms.get(room) {
-            let mut unordered = FuturesUnordered::new();
+            log::info!("ROOM HAS USERS: {:?}", users);
+            
             let users_cloned = users.clone();
             for (user_id, _) in inner.sessions.clone() {
                 if users_cloned.contains(&user_id) {
                     let msg = message.clone();
                     if let Some(sessions) = inner.sessions.remove(&user_id) {
+                        log::info!("sending to user: {}", user_id);
                         unordered.push(async move {
                             let mut results = Vec::new();
                             for mut session in sessions {
+                                println!("{}", serde_json::to_string(&msg).unwrap());
                                 let res = session.text(serde_json::to_string(&msg).unwrap()).await;
                                 results.push(res.map(|_| session).map_err(|_| log::info!("Dropping session")));
                             }
@@ -182,9 +235,26 @@ impl Chat {
                     }
                 }
             }
-            while let Some((user_id, results)) = unordered.next().await {
-                inner.sessions.insert(user_id, results.into_iter().filter_map(|i| i.ok()).collect());
+        }
+        drop(inner);
+        let res = unordered.collect::<Vec<(usize, Vec<Result<Session, ()>>)>>().await;
+        let mut inner = self.inner.lock().await;
+        for (user_id, results) in res {
+            inner.sessions.insert(user_id, results.into_iter().filter_map(|i| i.ok()).collect());
+        }
+    }
+
+    // send a message to all the sessions for ID
+    pub async fn send_to_id(&self, id: usize, message: MessageTypes) {
+        let mut inner = self.inner.lock().await;
+        let msg = message.clone();
+        if let Some(sessions) = inner.sessions.remove(&id) {
+            let mut results = Vec::new();
+            for mut session in sessions {
+                let res = session.text(serde_json::to_string(&msg).unwrap()).await;
+                results.push(res.map(|_| session).map_err(|_| log::info!("Dropping session")));
             }
+            inner.sessions.insert(id, results.into_iter().filter_map(|i| i.ok()).collect());
         }
     }
 }
