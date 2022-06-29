@@ -9,7 +9,6 @@ path = "src/main.rs"
 
 [dependencies]
 futures = "0.3"
-actix-rt = "2.6"
 actix-web = "4"
 actix-ws = "0.2.0"
 actix-http = "3.0.4"

@@ -124,6 +124,7 @@ pub struct ChatInner {
 
 impl Chat {
     pub fn new(visitor_count: Arc<AtomicUsize>) -> Self {
+        // TODO: make visitor count actually work
         let mut rooms = HashMap::new();
         rooms.insert("Main".to_owned(), HashSet::new());
         Chat {
