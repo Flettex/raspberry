@@ -3,7 +3,8 @@ use sqlx::types::chrono::{
     DateTime
 };
 use serde::{self, Deserialize, Deserializer, Serializer, de::Error};
-const FORMAT: &str = "%+";
+// const FORMAT: &str = "%+";
+const FORMAT: &str = "%Y-%m-%d %H:%M:%S";
 
 pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<NaiveDateTime>, D::Error>
 where
@@ -21,9 +22,9 @@ where
     S: Serializer,
 {
     if let Some(date) = date {
-        let s = format!("{}", date.format(FORMAT));
-        serializer.serialize_str(&s)
+        serializer.collect_str(&date.format(FORMAT))
     } else {
+        // this just can't happen because of the way database is designed
         serializer.serialize_str("")
     }
 }

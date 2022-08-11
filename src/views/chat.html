@@ -112,6 +112,8 @@
 
       /** @type {WebSocket | null} */
       var socket = null;
+      var disconnecting = false;
+      var room = "Main";
 
       function log(msg, type = 'status') {
         $log.innerHTML += `<p class="msg msg--${type}">${msg}</p>`;
@@ -137,12 +139,19 @@
         socket.onmessage = (ev) => {
           console.log(ev);
           const event = JSON.parse(ev.data);
+          console.log(event);
+          if (event.type === "MemberCreate") {
+            room = event.data.room;
+          } else if (event.type === "MemberRemove") {
+            room = "Main";
+          }
           log('Received: ' + event.data.content, 'message');
         };
 
         socket.onclose = () => {
           log('Disconnected');
           socket = null;
+          disconnecting = false;
           updateConnectionStatus();
         };
       }
@@ -150,8 +159,8 @@
       function disconnect() {
         if (socket) {
           log('Disconnecting...');
+          disconnecting = true;
           socket.close();
-          socket = null;
 
           updateConnectionStatus();
         }
@@ -174,6 +183,10 @@
 
       $connectButton.addEventListener('click', () => {
         if (socket) {
+          if (disconnecting) {
+            alert("Be patient I'm tryna disconnect");
+            return;
+          }
           disconnect();
         } else {
           connect();
@@ -188,7 +201,13 @@
         const text = $input.value;
 
         log('Sending: ' + text);
-        socket.send(text);
+        socket.send(JSON.stringify({
+          type: "MessageCreate",
+          data: {
+            content: text,
+            room
+          }
+        }));
 
         $input.value = '';
         $input.focus();

@@ -6,14 +6,18 @@ use std::{
     },
 };
 
-use actix_identity::{CookieIdentityPolicy, IdentityService};
+use actix_identity::IdentityMiddleware;
+use actix_session::{storage::CookieSessionStore, SessionMiddleware, config::CookieContentSecurity};
 use actix_web::{
     web,
     App,
     HttpServer,
     middleware::Logger,
-    cookie::SameSite,
+    cookie::{SameSite, Key},
+    // dev::Service as _
 };
+use actix_http::header;
+use actix_cors::Cors;
 
 use sqlx::postgres::PgPool;
 
@@ -30,7 +34,14 @@ mod db;
 // mod session;
 // test views for debugging purposes...
 mod html;
+// serde formatting date, uuid fields in structs
 mod format;
+// messages for server and sessions
+mod messages;
+
+const IS_DEV: bool = option_env!("RAILWAY_STATIC_URL").is_none();
+
+const EMAIL_PASSWORD: &str = env!("EMAIL_PASSWORD");
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -48,6 +59,7 @@ async fn main() -> std::io::Result<()> {
     .expect("Failed to create pool");
 
     let pool2 = pool.clone();
+    let pool3 = pool.clone();
 
     actix_web::rt::spawn(async move {
         sqlx::query!(
@@ -57,18 +69,15 @@ DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
         ).execute(&pool2).await.unwrap();
     });
 
-    let server = Chat::new(app_state.clone());
+    let server = Chat::new(app_state.clone(), db::start::get_all_guild_names(&pool3).await.unwrap());
 
-    let is_dev = match env::var("RAILWAY_STATIC_URL") {
-        Ok(_) => false,
-        Err(_) => true,
-    };
+    // let is_dev = env::var("RAILWAY_STATIC_URL").is_err();
 
     log::info!(
         "{}",
         format!(
             "starting HTTP server at {}",
-            if is_dev {
+            if IS_DEV {
                 "http://localhost:8080"
             } else {
                 "production url"
@@ -77,21 +86,49 @@ DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
     );
     
     HttpServer::new(move || {
-        let policy = CookieIdentityPolicy::new(&[0; 32])
-            .name("auth-cookie")
-            .same_site(SameSite::Lax)
-            .http_only(true)
-            .secure(if is_dev {false} else {true});
+        // log::info!("{}", env::var("SECRET_KEY").unwrap());
+        let mut key: Vec<u8> = env::var("SECRET_KEY").unwrap().split(",").collect::<Vec<&str>>().iter().map(|x| x.parse::<u8>().unwrap()).collect();
+        key.extend(key.clone().iter().rev());
+        let secret_key = Key::from(&key);
+        let cors = Cors::default()
+            .allowed_origin("http://localhost:3000")
+            .allowed_origin_fn(|origin, _req_head| {
+                origin.as_bytes().starts_with(b"http://localhost")
+                    // || origin.as_bytes().starts_with(b"https://")
+            })
+            // set allowed methods list
+            .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
+            // set allowed request header list
+            .allowed_headers(&[header::AUTHORIZATION, header::ACCEPT])
+            // add header to allowed list
+            .allowed_header(header::CONTENT_TYPE)
+            // set list of headers that are safe to expose
+            .expose_headers(&[header::CONTENT_DISPOSITION])
+            .max_age(3600);
         App::new()
+            .wrap(cors)
+            .wrap(IdentityMiddleware::default())
+            .wrap(
+                SessionMiddleware::builder(
+                    CookieSessionStore::default(),
+                    secret_key.clone()
+                )
+                .cookie_name("auth-cookie".to_string())
+                .cookie_same_site(SameSite::Lax)
+                .cookie_http_only(true)
+                .cookie_secure(if IS_DEV {false} else {true})
+                .cookie_content_security(CookieContentSecurity::Private)
+                .build()
+
+            )
             .app_data(web::Data::from(app_state.clone()))
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(server.clone()))
             .configure(controllers::config)
-            .wrap(IdentityService::new(policy))
             .wrap(Logger::default())
     })
     .workers(2)
-    .bind((if is_dev { "127.0.0.1" } else { "0.0.0.0" }, 8080))?
+    .bind((if IS_DEV { "127.0.0.1" } else { "0.0.0.0" }, 8080))?
     .run()
     .await
 }

@@ -1,7 +1,7 @@
-use actix_identity::{Identity};
+use actix_identity::Identity;
 use actix_web::{
     http::{header::ContentType, StatusCode},
-    web, HttpResponse
+    web, HttpResponse, HttpRequest, HttpMessage
 };
 
 use argon2::{
@@ -16,13 +16,24 @@ use serde_json::json;
 
 use crate::server;
 use crate::db;
+use utoipa;
 
+#[utoipa::path(
+    post,
+    path = "/login",
+    responses(
+        (status = 200, description = "Successful Response", body = String),
+        (status = 400, description = "Password does not match or email doesn't exist or the database failed to create a session", body = String)
+    ),
+    request_body(content = LoginEvent, description = "user email, user password", content_type = "application/json")
+)]
 pub async fn post(
     body: web::Json<server::LoginEvent>,
     pool: web::Data<PgPool>,
-    id: Identity,
+    id: Option<Identity>,
+    req: HttpRequest
 ) -> HttpResponse {
-    if let Some(_) = id.identity() {
+    if let Some(_) = id {
         return HttpResponse::Ok().finish();
     }
     let pl = body.into_inner();
@@ -32,10 +43,10 @@ pub async fn post(
             if argon2.verify_password(pl.password.as_bytes(), &PasswordHash::new(&password).unwrap()).is_ok() {
                 match db::login::create_session(user_id, pool.as_ref()).await {
                     Ok(session_id) => {
-                        id.remember(json!({
+                        Identity::login(&req.extensions(), json!({
                             "user_id": user_id,
                             "session_id": session_id.to_string()
-                        }).to_string());
+                        }).to_string()).unwrap();
                         HttpResponse::Ok().finish()
                     }
                     Err(err) => {

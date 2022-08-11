@@ -7,6 +7,8 @@ use std::path::Path;
 
 use std::io::{Write, Error};
 
+// use std::env;
+
 fn main() -> Result<(), Error> {
     let paths = read_dir("src/views").unwrap();
     let mut contents = "".to_string();
@@ -26,5 +28,24 @@ fn main() -> Result<(), Error> {
         let mut output = File::create("src/html.rs")?;
         write!(output, "{}", contents)?; 
     }
+
+    // export .env
+    // if Path::new(".env").exists() {
+    //     let env_contents = read_to_string(".env")?;
+    //     for line in env_contents.split("\n") {
+    //         if line.starts_with("#") {
+    //             continue;
+    //         };
+    //         let mut kv: Vec<&str> = line.splitn(2, "=").collect();
+    //         if let Some(sp) = kv[1].strip_prefix("'") {
+    //             kv[1] = sp;
+    //         }
+    //         if let Some(ss) = kv[1].strip_suffix("'") {
+    //             kv[1] = ss;
+    //         }
+    //         println!("{} = {}", kv[0], kv[1]);
+    //         env::set_var(kv[0], kv[1]);
+    //     }
+    // }
     Ok(())
 }

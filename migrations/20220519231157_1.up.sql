@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS users (
     "allow_login"     BOOLEAN NOT NULL DEFAULT TRUE,
     "is_online"       BOOLEAN NOT NULL DEFAULT FALSE,
     "is_staff"        BOOLEAN NOT NULL DEFAULT FALSE,
-    "is_superuser"    BOOLEAN NOT NULL DEFAULT FALSE
+    "is_superuser"    BOOLEAN NOT NULL DEFAULT FALSE,
+    "code"            INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS user_sessions (

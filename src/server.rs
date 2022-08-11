@@ -1,11 +1,12 @@
 use std::{
     collections::{HashMap, HashSet},
     sync::{
-        atomic::{AtomicUsize},
+        atomic::{AtomicUsize, Ordering},
         Arc,
     },
     clone::Clone,
 };
+use utoipa::{self, Component};
 
 use actix_ws::{Session};
 use futures::stream::{FuturesUnordered, StreamExt};
@@ -14,14 +15,11 @@ use tokio::sync::Mutex;
 use serde::{Serialize, Deserialize};
 use serde_json;
 
-use sqlx::types::{
-    chrono::{
-        NaiveDateTime,   
-    },
-    Uuid
+use crate::messages::{
+    MessageTypes,
+    MessageCreateType,
+    // MessageUpateType
 };
-
-use crate::format;
 
 #[derive(Serialize, Deserialize)]
 pub struct AuthCookie {
@@ -29,10 +27,11 @@ pub struct AuthCookie {
     pub session_id: String
 }
 
-
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Component)]
 pub struct LoginEvent {
+    #[component(example = "test@test.com")]
     pub email: String,
+    #[component(example = "abcd1234")]
     pub password: String
 }
 
@@ -44,6 +43,11 @@ pub struct SignUpEvent {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct VerifyEvent {
+    pub code: i32
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct ClientEvent {
     #[serde(flatten)]
     pub data: MessageTypes,
@@ -51,64 +55,41 @@ pub struct ClientEvent {
     pub room: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct User {
-    pub id: i64,
-    pub username: String,
-    pub email: String,
-    pub password: String,
-    pub profile: Option<String>,
-    #[serde(with = "format::date_format")]
-    pub created_at: Option<NaiveDateTime>,
-    pub description: Option<String>,
-    pub allow_login: bool,
-    pub is_online: bool,
-    pub is_staff: bool,
-    pub is_superuser: bool
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct UserSession {
-    #[serde(with = "format::uid_format")]
-    pub session_id: Uuid,
-    pub userid: i64,
-    #[serde(with = "format::date_format")]
-    pub last_login: Option<NaiveDateTime>
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct Guild {
-    pub id: String,
-    pub name: String,
-    pub description: String,
-    pub icon: String,
-    #[serde(with = "format::dt_format")]
-    pub created_at: Option<NaiveDateTime>,
-    pub creator_id: i64
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct ReadyEvent {
-    pub user: User,
-    pub guilds: Vec<Guild>
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct MessageCreateType {
-    pub content: String,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct MessageUpateType {
-    pub id: usize,
-    pub content: String,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(tag = "type", content = "data")]
-pub enum MessageTypes {
-    MessageCreate(MessageCreateType),
-    MessageUpate(MessageUpateType)
+impl utoipa::Component for ClientEvent {
+    fn component() -> utoipa::openapi::schema::Component {
+        utoipa::openapi::ObjectBuilder::new()
+            .property(
+                "client_id",
+                utoipa::openapi::PropertyBuilder::new()
+                    .component_type(utoipa::openapi::ComponentType::Integer)
+                    .format(Some(utoipa::openapi::ComponentFormat::Int64)),
+            )
+            .required("client_id")
+            .property(
+                "room",
+                utoipa::openapi::Property::new(utoipa::openapi::ComponentType::String),
+            )
+            .required("room")
+            .property(
+                "type",
+                utoipa::openapi::Property::new(utoipa::openapi::ComponentType::String),
+            )
+            .required("room")
+            .property(
+                "data",
+                utoipa::openapi::Property::new(utoipa::openapi::ComponentType::Object),
+            )
+            .required("data")
+            .example(Some(serde_json::json!({
+                "type": "MessageCreate",
+                "data": {
+                    "content": "test123"
+                },
+                "room": "Main",
+                "client_id": 1
+            })))
+            .into()
+    }
 }
 
 #[derive(Clone)]
@@ -123,10 +104,13 @@ pub struct ChatInner {
 }
 
 impl Chat {
-    pub fn new(visitor_count: Arc<AtomicUsize>) -> Self {
+    pub fn new(visitor_count: Arc<AtomicUsize>, room_names: Vec<String>) -> Self {
         // TODO: make visitor count actually work
         let mut rooms = HashMap::new();
         rooms.insert("Main".to_owned(), HashSet::new());
+        for name in room_names {
+            rooms.insert(name, HashSet::new());
+        }
         Chat {
             inner: Arc::new(Mutex::new(ChatInner {
                 sessions: HashMap::new(),
@@ -147,18 +131,44 @@ impl Chat {
         rooms
     }
 
+    pub async fn new_visitor(&self) -> usize {
+        let inner = self.inner.lock().await;
+        inner.visitor_count.fetch_add(1, Ordering::SeqCst)
+    }
+
+    pub async fn leave_room(&self, room: String, user_id: usize) {
+        log::info!("{} id leaving room {}", user_id, room);
+
+        {
+            let mut inner = self.inner.lock().await;
+            if let Some(sessions) = inner.rooms.get_mut(&room) {
+                if sessions.remove(&user_id) {
+                    if sessions.len() == 0 {
+                        inner.rooms.remove(&room);
+                        return;
+                    }
+                    drop(inner);
+                    self.send_message(&room, MessageTypes::MessageCreate(MessageCreateType{content: "Someone disconnected".to_string(), room: room.clone()})).await;
+                }
+            }
+        }
+    }
+
     pub async fn join_room(&self, room: String, user_id: usize) {
         log::info!("{} id joining room {}", user_id, room);
-        let mut rooms = Vec::new();
+        // let mut rooms = Vec::new();
         // drop MutexGuard
         {
             let mut inner = self.inner.lock().await;
 
-            for (n, sessions) in &mut inner.rooms {
-                if sessions.remove(&user_id) {
-                    rooms.push(n.to_owned());
-                }
-            }
+            /* No longer a feature */
+            // // remove user from their old room (intentional feature)
+
+            // for (n, sessions) in &mut inner.rooms {
+            //     if sessions.remove(&user_id) {
+            //         rooms.push(n.to_owned());
+            //     }
+            // }
 
             inner.rooms
                 .entry(room.clone())
@@ -166,12 +176,12 @@ impl Chat {
                 .insert(user_id);    
         }
 
-        log::info!("ROOMS: {:?}", rooms);
-        for room in rooms {
-            self.send_message(&room, MessageTypes::MessageCreate(MessageCreateType{content: "Someone disconnected".to_string()})).await;
-        }
+        // log::info!("ROOMS: {:?}", rooms);
+        // for room in rooms {
+        //     self.send_message(&room, MessageTypes::MessageCreate(MessageCreateType{content: "Someone disconnected".to_string()})).await;
+        // }
 
-        self.send_message(&room, MessageTypes::MessageCreate(MessageCreateType{content: "Someone connected".to_string()})).await;
+        self.send_message(&room, MessageTypes::MessageCreate(MessageCreateType{content: "Someone connected".to_string(), room: room.clone()})).await;
     }
 
     pub async fn insert(&self, user_id: usize, session: Session) {
@@ -236,6 +246,8 @@ impl Chat {
                     }
                 }
             }
+        } else {
+            return;
         }
         drop(inner);
         let res = unordered.collect::<Vec<(usize, Vec<Result<Session, ()>>)>>().await;
@@ -245,7 +257,8 @@ impl Chat {
         }
     }
 
-    // send a message to all the sessions for ID
+    // send a message to all the sessions active on user_id
+    #[allow(dead_code)]
     pub async fn send_to_id(&self, id: usize, message: MessageTypes) {
         let mut inner = self.inner.lock().await;
         let msg = message.clone();

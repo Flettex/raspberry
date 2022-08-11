@@ -1,11 +1,14 @@
-use actix_identity::{Identity};
+use actix_identity::Identity;
 use actix_web::{
     http::{header::ContentType, StatusCode},
-    web, HttpResponse
+    web, HttpResponse, HttpRequest, HttpMessage
 };
+use lettre::transport::smtp::authentication::Credentials;
+use lettre::{Message, SmtpTransport, Transport};
+use rand::random;
 
 use sqlx::postgres::PgPool;
-use crate::server;
+use crate::{server, EMAIL_PASSWORD};
 use crate::db::signup::{
     create_user,
     create_password
@@ -15,20 +18,46 @@ use serde_json::json;
 pub async fn post(
     body: web::Json<server::SignUpEvent>,
     pool: web::Data<PgPool>,
-    id: Identity,
+    id: Option<Identity>,
+    req: HttpRequest
 ) -> HttpResponse {
-    if let Some(_) = id.identity() {
+    if let Some(_) = id {
         return HttpResponse::Ok().finish();
     }
     let pl = body.into_inner();
     match create_password(pl.password) {
         Ok(password_hash) => {
-            match create_user(pl.username, pl.email, password_hash, pool.as_ref()).await {
+            // generate random
+            let code = random::<u8>();
+            match create_user(pl.username, pl.email.clone(), code.clone().into(), password_hash, pool.as_ref()).await {
                 Ok((session_id, user_id)) => {
-                    id.remember(json!({
+                    Identity::login(&req.extensions(), json!({
                         "user_id": user_id,
                         "session_id": session_id.to_string()
-                    }).to_string());
+                    }).to_string()).unwrap();
+                    let email = Message::builder()
+                        .from("Balls Eater <capitalismdiscordbot@gmail.com>".parse().unwrap())
+                        .reply_to("Ballz <capitalismdiscordbot@gmail.com>".parse().unwrap())
+                        .to(format!("<{}>", pl.email.clone()).parse().unwrap())
+                        .subject("Thanks for registering for flettex")
+                        .body(format!("Your verification code is: {}", code))
+                        .unwrap();
+                    
+                    println!("CODE IS {}", code);
+
+                    let creds = Credentials::new("capitalismdiscordbot@gmail.com".to_string(), EMAIL_PASSWORD.to_string());
+
+                    // Open a remote connection to gmail
+                    let mailer = SmtpTransport::relay("smtp.gmail.com")
+                        .unwrap()
+                        .credentials(creds)
+                        .build();
+
+                    // Send the email
+                    match mailer.send(&email) {
+                        Ok(_) => println!("Email sent successfully!"),
+                        Err(e) => println!("Could not send email: {:?}", e),
+                    }
                     HttpResponse::Ok().finish()
                 }
                 Err(err) => match err {

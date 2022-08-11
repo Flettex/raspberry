@@ -1,6 +1,6 @@
 use std::{
     sync::Arc,
-    time::{Instant}
+    time::Instant
 };
 
 use actix_web::{
@@ -35,25 +35,24 @@ pub async fn get(
     stream: web::Payload,
     srv: web::Data<server::Chat>,
     pool: web::Data<PgPool>,
-    id: Identity,
+    id: Option<Identity>,
 ) -> Result<HttpResponse, Error> {
-    if let Some(session_id) = id.identity() {
+    if let Some(session_id) = id {
         let (response, session, stream) = actix_ws::handle(&req, stream)?;
-        let session_cookie: AuthCookie = serde_json::from_str(&session_id).unwrap();
+        let session_cookie: AuthCookie = serde_json::from_str(&session_id.id().unwrap()).unwrap();
         srv.insert(session_cookie.user_id.try_into().unwrap(), session.clone()).await;
         log::info!("Inserted session");
         let alive = Arc::new(Mutex::new(Instant::now()));
-        
         actix_web::rt::spawn(async move {
             let chat_session = WsChatSession {
-                id: session_cookie.user_id.try_into().unwrap(),
+                id: Arc::new(Mutex::new(session_cookie.user_id.try_into().unwrap())),
                 rooms: Arc::new(Mutex::new(vec!["Main".to_owned()])),
                 name: Arc::new(Mutex::new(None)),
                 srv: srv.as_ref().clone(),
                 pool: pool.as_ref().clone(),
                 alive,
                 session,
-                session_id,
+                session_id: session_cookie.session_id,
                 stream: Arc::new(Mutex::new(stream))
             };
             future::join(chat_session.hb(), chat_session.start()).await;

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel</title>
+<style>
+    * {
+        font-family: Menlo, Monaco, 'Courier New', monospace;
+    }
+</style>
+</head>
+<body>
+    <p>{{users_data}}</p>
+    <p>{{user_sessions_data}}</p>
+    <p>{{guilds_data}}</p>
+    <p>{{member_data}}</p>
+    <input type="text" placeholder="Raw query" id="q">
+    <p id="q_res"></p>
+    <button id="btn">Submit</button>
+    <script>
+        document.getElementById("btn").onclick = async () => {
+            let res = await fetch("/sqlx", {
+                method: "POST",
+                headers: {
+                    'Content-Type': "text/plain"
+                },
+                body: document.getElementById("q").value
+            });
+            document.getElementById("q_res").innerHTML = (await res.text()).replaceAll("\n", "<br/>");
+        };
+    </script>
+</body>
+</html>

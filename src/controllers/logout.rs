@@ -10,11 +10,11 @@ use crate::db;
 use crate::server::AuthCookie;
 
 pub async fn delete(
-    id: Identity,
+    id: Option<Identity>,
     pool: web::Data<PgPool>,
 ) -> HttpResponse {
-    if let Some(session_id) = id.identity() {
-        let session_cookie: AuthCookie = serde_json::from_str(&session_id).unwrap();
+    if let Some(session_id) = id {
+        let session_cookie: AuthCookie = serde_json::from_str(&session_id.id().unwrap()).unwrap();
         match db::logout::delete_session(
             sqlx::types::Uuid::parse_str(&session_cookie.session_id).unwrap(),
             pool.as_ref(),
@@ -22,7 +22,7 @@ pub async fn delete(
         .await
         {
             Ok(_) => {
-                id.forget();
+                session_id.logout();
                 HttpResponse::Ok().finish()
             }
             Err(_) => HttpResponse::build(StatusCode::BAD_REQUEST)
