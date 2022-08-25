@@ -1,6 +1,6 @@
 use sqlx::{PgPool, postgres::PgQueryResult};
 
-pub async fn code(user_id: i64, pool: &PgPool) -> sqlx::Result<Option<i32>> {
+pub async fn code(user_id: i64, pool: &PgPool) -> sqlx::Result<Option<i64>> {
     match sqlx::query!(
         r#"
 SELECT code FROM users WHERE id = $1

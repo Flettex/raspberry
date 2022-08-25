@@ -32,7 +32,9 @@ pub struct LoginEvent {
     #[component(example = "test@test.com")]
     pub email: String,
     #[component(example = "abcd1234")]
-    pub password: String
+    pub password: String,
+    #[component(example = "bruhmeme")]
+    pub code: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -40,11 +42,12 @@ pub struct SignUpEvent {
     pub username: String,
     pub email: String,
     pub password: String,
+    pub code: String,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct VerifyEvent {
-    pub code: i32
+    pub code: i64
 }
 
 #[derive(Serialize, Deserialize)]
@@ -105,7 +108,6 @@ pub struct ChatInner {
 
 impl Chat {
     pub fn new(visitor_count: Arc<AtomicUsize>, room_names: Vec<String>) -> Self {
-        // TODO: make visitor count actually work
         let mut rooms = HashMap::new();
         rooms.insert("Main".to_owned(), HashSet::new());
         for name in room_names {
@@ -148,7 +150,7 @@ impl Chat {
                         return;
                     }
                     drop(inner);
-                    self.send_message(&room, MessageTypes::MessageCreate(MessageCreateType{content: "Someone disconnected".to_string(), room: room.clone()})).await;
+                    self.send_message(&room, MessageTypes::MessageCreate(MessageCreateType{content: "Someone left".to_string(), room: room.clone()})).await;
                 }
             }
         }
@@ -181,7 +183,7 @@ impl Chat {
         //     self.send_message(&room, MessageTypes::MessageCreate(MessageCreateType{content: "Someone disconnected".to_string()})).await;
         // }
 
-        self.send_message(&room, MessageTypes::MessageCreate(MessageCreateType{content: "Someone connected".to_string(), room: room.clone()})).await;
+        self.send_message(&room, MessageTypes::MessageCreate(MessageCreateType{content: "Someone joined".to_string(), room: room.clone()})).await;
     }
 
     pub async fn insert(&self, user_id: usize, session: Session) {
@@ -196,7 +198,7 @@ impl Chat {
         values.insert(user_id);
     }
 
-    // send global.
+    // send global. Please try to not use this
     pub async fn send(&self, msg: MessageTypes) {
         let mut inner = self.inner.lock().await;
         let unordered = FuturesUnordered::new();
@@ -223,6 +225,7 @@ impl Chat {
     // can add a skip_id parameter
     pub async fn send_message(&self, room: &str, message: MessageTypes) {
         let mut inner = self.inner.lock().await;
+        // hahaha lmao we need an ordered list of futures bruh Rust
         let unordered = FuturesUnordered::new();
         log::info!("SENDING TO ROOM: {}", room);
         if let Some(users) = inner.rooms.get(room) {

@@ -2,15 +2,16 @@ use sqlx::{
     PgPool,
     types::{
         Uuid
-    }
+    }, postgres::PgQueryResult
 };
-use crate::messages::WsGuildCreate;
+use crate::messages::{WsGuildCreate, WsChannelCreate};
 
 use super::models::{
     User,
     UserSession,
     Guild,
-    Member
+    Member,
+    Channel
 };
 
 pub async fn get_all(pool: &PgPool) -> sqlx::Result<Vec<User>> {
@@ -58,7 +59,6 @@ FROM member;
 }
 
 pub async fn get_user_by_session_id(session_id: String, pool: &PgPool) -> sqlx::Result<User> {
-    println!("Received session_id: {}", session_id);
     sqlx::query_as!(
         User,
         r#"
@@ -72,31 +72,53 @@ INNER JOIN user_sessions AS u ON u.session_id = $1 AND u.userid = us.id;
     .await
 }
 
-pub async fn get_guild_ids_by_user_id(user_id: i64, pool: &PgPool) -> sqlx::Result<Vec<Uuid>> {
-    match sqlx::query!(
-        r#"
-SELECT m.guild_id
-FROM member AS m
-INNER JOIN users AS us ON us.id = $1 AND m.user_id = us.id;
-        "#,
-        user_id
-    ).fetch_all(pool).await {
-        Ok(recs) => Ok(recs.iter().map(|s| s.guild_id).collect::<Vec<Uuid>>()),
-        Err(err) => Err(err)
-    }
-}
-
 pub async fn get_guild_by_id(guild_id: Uuid, pool: &PgPool) -> sqlx::Result<Guild> {
     sqlx::query_as!(
         Guild,
         r#"
-SELECT * FROM guild WHERE id = $1;
+SELECT * FROM guild WHERE id = $1
         "#,
         guild_id
-    )
-    .fetch_one(pool)
-    .await
+    ).fetch_one(pool).await
 }
+
+pub async fn get_guilds_by_user_id(user_id: i64, pool: &PgPool) -> sqlx::Result<Vec<Guild>> {
+    match sqlx::query_as!(
+        Guild,
+        r#"
+SELECT g.*
+FROM member AS m
+INNER JOIN guild AS g ON g.id = m.guild_id
+WHERE m.user_id = $1;
+        "#,
+        user_id
+    ).fetch_all(pool).await {
+        Ok(recs) => Ok(recs),
+        Err(err) => Err(err)
+    }
+}
+
+pub async fn get_channels_by_guild_id(guild_id: Uuid, pool: &PgPool) -> sqlx::Result<Vec<Channel>> {
+    sqlx::query_as!(
+        Channel,
+        r#"
+SELECT * FROM channel WHERE guild_id = $1
+        "#,
+        guild_id
+    ).fetch_all(pool).await
+}
+
+// pub async fn get_guild_by_id(guild_id: Uuid, pool: &PgPool) -> sqlx::Result<Guild> {
+//     sqlx::query_as!(
+//         Guild,
+//         r#"
+// SELECT * FROM guild WHERE id = $1;
+//         "#,
+//         guild_id
+//     )
+//     .fetch_one(pool)
+//     .await
+// }
 
 /* START: creates */
 
@@ -127,6 +149,58 @@ VALUES ($1, $2, $3, $4) RETURNING *
         }
         Err(err) => Err(err)
     }
+}
+
+pub async fn create_channel(channel: WsChannelCreate, pool: &PgPool) -> sqlx::Result<Channel>  {
+    match sqlx::query_as!(
+        Channel,
+        r#"
+INSERT INTO channel (name, description, position, guild_id) 
+VALUES ($1, $2, $3, $4) RETURNING *
+        "#,
+        channel.name,
+        channel.desc,
+        channel.position,
+        channel.guild_id
+    )
+    .fetch_one(pool)
+    .await {
+        Ok(rec) => Ok(rec),
+        Err(err) => Err(err)
+    }
+}
+
+pub async fn join_guild(user_id: i64, guild_id: Uuid, pool: &PgPool) -> sqlx::Result<Vec<Channel>> {
+    sqlx::query_as!(
+        Channel,
+        r#"
+WITH gids AS (
+    INSERT INTO member (user_id, guild_id)
+    VALUES ($1, $2) RETURNING guild_id
+) SELECT * FROM channel WHERE guild_id = (SELECT guild_id from gids)
+        "#,
+        user_id,
+        guild_id
+    ).fetch_all(pool).await
+}
+
+pub async fn toggle_user_status(user_id: i64, online: bool, pool: &PgPool) -> sqlx::Result<PgQueryResult> {
+    sqlx::query!(
+        r#"
+UPDATE users SET is_online = $1 WHERE id = $2
+        "#,
+        online,
+        user_id
+    ).execute(pool).await
+}
+
+pub async fn update_user_last_login(session_id: Uuid, pool: &PgPool) -> sqlx::Result<PgQueryResult> {
+    sqlx::query!(
+        r#"
+UPDATE user_sessions SET last_login = NOW() WHERE session_id = $1
+        "#,
+        session_id
+    ).execute(pool).await
 }
 
 // pub async fn get_user_id_by_session_id(session_id: String, pool: &PgPool) -> sqlx::Result<i64> {

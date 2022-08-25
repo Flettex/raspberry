@@ -3,6 +3,7 @@ use actix_web::{
     http::{header::ContentType, StatusCode},
     web, HttpResponse, HttpRequest, HttpMessage
 };
+use actix_session::Session;
 
 use argon2::{
     password_hash::{
@@ -30,6 +31,7 @@ use utoipa;
 pub async fn post(
     body: web::Json<server::LoginEvent>,
     pool: web::Data<PgPool>,
+    session: Session,
     id: Option<Identity>,
     req: HttpRequest
 ) -> HttpResponse {
@@ -37,6 +39,13 @@ pub async fn post(
         return HttpResponse::Ok().finish();
     }
     let pl = body.into_inner();
+    log::info!("GIVEN: {}\n REAL CODE: {}", pl.code, session.get::<String>("captcha").unwrap().unwrap());
+    if pl.code != session.get::<String>("captcha").unwrap().unwrap() {
+        return HttpResponse::build(StatusCode::BAD_REQUEST)
+            .content_type(ContentType::plaintext())
+            .body("You are a bot");
+    }
+    session.remove("captcha");
     let argon2 = Argon2::default();
     match db::login::get_user_and_password(pl.email, pool.as_ref()).await {
         Ok((user_id, password)) => {

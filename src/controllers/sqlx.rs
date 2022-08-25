@@ -24,8 +24,15 @@ const POSTGRES_EPOCH: i64 = 946702800;
 
 fn get_val(item: &[u8], info: &PgTypeInfo) -> String {
     println!("{}", info.name());
-    if info.name() == "INT8" {
+    // postgres dude why is it [110, 117, 108, 108]
+    if item == [110, 117, 108, 108] {
+        return "NULL".to_string()
+    } else if info.name() == "INT8" {
         return i64::from_be_bytes(item.try_into().unwrap()).to_string();
+    } else if info.name() == "INT4" {
+        // shouldn't be possible anymore since production DB is stupid
+        // but in case..
+        return i32::from_be_bytes(item.try_into().unwrap()).to_string();
     } else if info.name() == "UUID" {
         return Uuid::from_slice(item).unwrap().to_string();
     } else if info.name() == "TIMESTAMP" {

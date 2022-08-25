@@ -25,9 +25,12 @@ pub async fn delete(
                 session_id.logout();
                 HttpResponse::Ok().finish()
             }
-            Err(_) => HttpResponse::build(StatusCode::BAD_REQUEST)
+            Err(_) => {
+                session_id.logout();
+                HttpResponse::build(StatusCode::BAD_REQUEST)
                 .content_type(ContentType::plaintext())
-                .body("Bad request"),
+                .body("Bad request")
+            }
         }
     } else {
         HttpResponse::Ok().finish()

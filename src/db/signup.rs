@@ -24,7 +24,7 @@ pub fn create_password(password: String) -> Result<String, Error> {
     }
 }
 
-pub async fn create_user(username: String, email: String, code: i32, password_hash: String, pool: &PgPool) -> sqlx::Result<(Uuid, i64)> {
+pub async fn create_user(username: String, email: String, code: i64, password_hash: String, pool: &PgPool) -> sqlx::Result<(Uuid, i64)> {
     match sqlx::query!(
         r#"
 INSERT INTO users ( username, email, password, code )

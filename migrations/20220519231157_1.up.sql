@@ -6,26 +6,26 @@ CREATE TABLE IF NOT EXISTS users (
     "email"           TEXT NOT NULL UNIQUE CHECK (char_length(email) <= 191),
     "password"        TEXT NOT NULL,
     "profile"         TEXT,
-    "created_at"      TIMESTAMP DEFAULT current_timestamp,
+    "created_at"      TIMESTAMP DEFAULT current_timestamp NOT NULL,
     "description"     TEXT CHECK (char_length(description) <= 255),
     "allow_login"     BOOLEAN NOT NULL DEFAULT TRUE,
     "is_online"       BOOLEAN NOT NULL DEFAULT FALSE,
     "is_staff"        BOOLEAN NOT NULL DEFAULT FALSE,
     "is_superuser"    BOOLEAN NOT NULL DEFAULT FALSE,
-    "code"            INTEGER
+    "code"            BIGINT
 );
 
 CREATE TABLE IF NOT EXISTS user_sessions (
     "session_id"      uuid PRIMARY KEY DEFAULT gen_random_uuid (),
     "userid"          BIGINT NOT NULL,
-    "last_login"      TIMESTAMP DEFAULT current_timestamp,
+    "last_login"      TIMESTAMP DEFAULT current_timestamp NOT NULL,
     CONSTRAINT fk_user_sessions FOREIGN KEY(userid) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS posts (
     "post_id"         BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    "created_at"      TIMESTAMP DEFAULT current_timestamp,
-    "updated_at"      TIMESTAMP DEFAULT current_timestamp,
+    "created_at"      TIMESTAMP DEFAULT current_timestamp NOT NULL,
+    "updated_at"      TIMESTAMP DEFAULT current_timestamp NOT NULL,
     "title"           TEXT NOT NULL CHECK (char_length(title) <= 255),
     "content"         TEXT,
     "published"       BOOLEAN DEFAULT FALSE,
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS "guild" (
     "name"        varchar(50) NOT NULL,
     "description" text NULL,
     "icon"        varchar(100) NULL,
-    "created_at"  TIMESTAMP DEFAULT current_timestamp,
+    "created_at"  TIMESTAMP DEFAULT current_timestamp NOT NULL,
     "creator_id"  BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -51,8 +51,9 @@ CREATE TABLE IF NOT EXISTS "channel" (
     "name"        varchar(50) NOT NULL,
     "description" text NULL,
     "position"    integer NOT NULL CHECK ("position" >= 0),
-    "created_at"  timestamp with time zone NOT NULL,
-    "guild_id"    uuid NOT NULL REFERENCES guild(id) ON DELETE CASCADE
+    "created_at"  TIMESTAMP DEFAULT current_timestamp NOT NULL,
+    "guild_id"    uuid NOT NULL REFERENCES guild(id) ON DELETE CASCADE,
+    UNIQUE (position, guild_id)
 );
 
 
@@ -69,7 +70,7 @@ CREATE TABLE IF NOT EXISTS "role" (
     "name"            varchar(25) NOT NULL,
     "colour"          varchar(15) NOT NULL,
     "position"        integer NOT NULL CHECK ("position" >= 0),
-    "created_at"      TIMESTAMP NOT NULL DEFAULT current_timestamp,
+    "created_at"      TIMESTAMP DEFAULT current_timestamp NOT NULL ,
     "guild_id"        uuid NOT NULL REFERENCES guild(id),
     --- Role permission fields
     --- Allow to read and send messages by default
@@ -79,8 +80,8 @@ CREATE TABLE IF NOT EXISTS "role" (
 CREATE TABLE IF NOT EXISTS "message" (
     "id"         uuid PRIMARY KEY DEFAULT gen_random_uuid (),
     "content"    text NOT NULL,
-    "created_at" timestamp NOT NULL DEFAULT current_timestamp,
-    "edited_at"  TIMESTAMP DEFAULT current_timestamp,  --- because you said null vals can cause issues
+    "created_at" TIMESTAMP DEFAULT current_timestamp NOT NULL,
+    "edited_at"  TIMESTAMP DEFAULT current_timestamp NOT NULL,  --- because you said null vals can cause issues
     "author_id"  uuid NULL REFERENCES member(id) ON DELETE SET NULL,
     "channel_id" uuid NOT NULL REFERENCES channel(id) ON DELETE CASCADE
 );

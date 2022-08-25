@@ -10,6 +10,8 @@
     <form id="frm">
         <input id="e" type="email" placeholder="Type an email" required>
         <input id="p" type="password" placeholder="Type a password" required>
+        <input id="captcha" type="text" placeholder="captcha" required>
+        <img src="{{captcha}}" alt="captcha">
         <button type="submit">Submit</button>
     </form>
     <script>
@@ -27,7 +29,8 @@
                 },
                 body: JSON.stringify({
                     email: gebi("e").value,
-                    password: gebi("p").value
+                    password: gebi("p").value,
+                    code: gebi("captcha").value
                 })
             }).then((res) => {
                 if (res.ok) {

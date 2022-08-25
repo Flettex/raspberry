@@ -1,9 +1,11 @@
 use serde::{self, Serialize, Deserialize};
-use sqlx::types::Uuid;
+// use sqlx::types::Uuid;
 use std::clone::Clone;
+use sqlx::types::Uuid;
 use crate::db::models::{
-    User,
-    Guild
+    Guild,
+    UserClient,
+    GuildChannels, Channel
 };
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -20,13 +22,18 @@ pub struct MessageUpateType {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ReadyEventType {
-    pub user: User,
-    pub guilds: Vec<Uuid>
+    pub user: UserClient,
+    pub guilds: Vec<GuildChannels>
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GuildCreateType {
     pub guild: Guild
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ChannelCreateType {
+    pub channel: Channel
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -50,6 +57,7 @@ pub enum MessageTypes {
     MessageUpate(MessageUpateType),
     ReadyEvent(ReadyEventType),
     GuildCreate(GuildCreateType),
+    ChannelCreate(ChannelCreateType),
     MemberCreate(MemberCreateType),
     MemberRemove(MemberRemoveType)
 }
@@ -83,6 +91,19 @@ pub struct WsGuildCreate {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
+pub struct WsChannelCreate {
+    pub name: String,
+    pub desc: Option<String>,
+    pub position: i32, // idk what to do with this tbh
+    pub guild_id: Uuid
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct WsMemberCreate {
+    pub guild_id: Uuid
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(tag = "type", content = "data")]
 pub enum WsReceiveTypes {
     // {"type":"MessageUpdate", "data":{"content":"",id:1}}
@@ -91,6 +112,10 @@ pub enum WsReceiveTypes {
     MessageCreate(WsMessageCreate),
     // {"type":"GuildCreate", "data":{"name": "breme's server"}}
     GuildCreate(WsGuildCreate),
+    // {"type":"ChannelCreate", "data":{"name": "dumbdumbs", "position": 0, "guild_id": "bruh-bruh-bruh-bruh-bruh-bruh"}}
+    ChannelCreate(WsChannelCreate),
+    // {"type": "MemberCreate", "data":{"guild_id": "bruh-bruh-bruh-bruh-bruh-bruh"}}
+    MemberCreate(WsMemberCreate),
     // {"type":"Null"}
     // used for testing purposes
     Null

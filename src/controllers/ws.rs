@@ -1,6 +1,7 @@
 use std::{
     sync::Arc,
-    time::Instant
+    time::Instant,
+    collections::HashSet
 };
 
 use actix_web::{
@@ -46,7 +47,7 @@ pub async fn get(
         actix_web::rt::spawn(async move {
             let chat_session = WsChatSession {
                 id: Arc::new(Mutex::new(session_cookie.user_id.try_into().unwrap())),
-                rooms: Arc::new(Mutex::new(vec!["Main".to_owned()])),
+                rooms: Arc::new(Mutex::new(HashSet::from(["Main".to_owned()]))),
                 name: Arc::new(Mutex::new(None)),
                 srv: srv.as_ref().clone(),
                 pool: pool.as_ref().clone(),

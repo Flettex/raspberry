@@ -7,6 +7,8 @@ use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
 use rand::random;
 
+use actix_session::Session;
+
 use sqlx::postgres::PgPool;
 use crate::{server, EMAIL_PASSWORD};
 use crate::db::signup::{
@@ -19,12 +21,19 @@ pub async fn post(
     body: web::Json<server::SignUpEvent>,
     pool: web::Data<PgPool>,
     id: Option<Identity>,
-    req: HttpRequest
+    req: HttpRequest,
+    session: Session
 ) -> HttpResponse {
     if let Some(_) = id {
         return HttpResponse::Ok().finish();
     }
     let pl = body.into_inner();
+    if pl.code != session.get::<String>("captcha").unwrap().unwrap() {
+        return HttpResponse::build(StatusCode::BAD_REQUEST)
+            .content_type(ContentType::plaintext())
+            .body("You are a bot");
+    }
+    session.remove("captcha");
     match create_password(pl.password) {
         Ok(password_hash) => {
             // generate random

@@ -7,13 +7,13 @@ use std::{
 };
 
 use actix_identity::IdentityMiddleware;
-use actix_session::{storage::CookieSessionStore, SessionMiddleware, config::CookieContentSecurity};
+use actix_session::{storage::CookieSessionStore, SessionMiddleware, config::{CookieContentSecurity, PersistentSession}};
 use actix_web::{
     web,
     App,
     HttpServer,
     middleware::Logger,
-    cookie::{SameSite, Key},
+    cookie::{SameSite, Key, time::Duration},
     // dev::Service as _
 };
 use actix_http::header;
@@ -59,7 +59,8 @@ async fn main() -> std::io::Result<()> {
     .expect("Failed to create pool");
 
     let pool2 = pool.clone();
-    let pool3 = pool.clone();
+    // Not used at the moment
+    let _pool3 = pool.clone();
 
     actix_web::rt::spawn(async move {
         sqlx::query!(
@@ -69,7 +70,8 @@ DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
         ).execute(&pool2).await.unwrap();
     });
 
-    let server = Chat::new(app_state.clone(), db::start::get_all_guild_names(&pool3).await.unwrap());
+    // db::start::get_all_channel_names(&pool3).await.unwrap()
+    let server = Chat::new(app_state.clone(), vec![]);
 
     // let is_dev = env::var("RAILWAY_STATIC_URL").is_err();
 
@@ -87,7 +89,7 @@ DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
     
     HttpServer::new(move || {
         // log::info!("{}", env::var("SECRET_KEY").unwrap());
-        let mut key: Vec<u8> = env::var("SECRET_KEY").unwrap().split(",").collect::<Vec<&str>>().iter().map(|x| x.parse::<u8>().unwrap()).collect();
+        let mut key: Vec<u8> = env::var("SECRET_KEY").unwrap().replace("'", "").split(",").collect::<Vec<&str>>().iter().map(|x| x.parse::<u8>().unwrap()).collect();
         key.extend(key.clone().iter().rev());
         let secret_key = Key::from(&key);
         let cors = Cors::default()
@@ -118,6 +120,7 @@ DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
                 .cookie_http_only(true)
                 .cookie_secure(if IS_DEV {false} else {true})
                 .cookie_content_security(CookieContentSecurity::Private)
+                .session_lifecycle(PersistentSession::default().session_ttl(Duration::days(7)))
                 .build()
 
             )
