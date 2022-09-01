@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS "channel" (
     "id"          uuid PRIMARY KEY DEFAULT gen_random_uuid (),
     "name"        varchar(50) NOT NULL,
     "description" text NULL,
-    "position"    integer NOT NULL CHECK ("position" >= 0),
+    "position"    bigint NOT NULL CHECK ("position" >= 0),
     "created_at"  TIMESTAMP DEFAULT current_timestamp NOT NULL,
     "guild_id"    uuid NOT NULL REFERENCES guild(id) ON DELETE CASCADE,
     UNIQUE (position, guild_id)
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS "message" (
     "content"    text NOT NULL,
     "created_at" TIMESTAMP DEFAULT current_timestamp NOT NULL,
     "edited_at"  TIMESTAMP DEFAULT current_timestamp NOT NULL,  --- because you said null vals can cause issues
-    "author_id"  uuid NULL REFERENCES member(id) ON DELETE SET NULL,
+    "author_id"  bigint NULL REFERENCES users(id) ON DELETE SET NULL,
     "channel_id" uuid NOT NULL REFERENCES channel(id) ON DELETE CASCADE
 );
 

@@ -5,7 +5,9 @@ use sqlx::types::Uuid;
 use crate::db::models::{
     Guild,
     UserClient,
-    GuildChannels, Channel
+    GuildChannels,
+    Channel,
+    Message
 };
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -50,9 +52,19 @@ pub struct MemberRemoveType {
     pub room: String
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct MessagesType {
+    pub messages: Vec<Message>
+}
+
+// impl Clone for MessagesType {
+
+// }
+
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(tag = "type", content = "data")]
 pub enum MessageTypes {
+    Messages(MessagesType),
     MessageCreate(MessageCreateType),
     MessageUpate(MessageUpateType),
     ReadyEvent(ReadyEventType),
@@ -94,7 +106,7 @@ pub struct WsGuildCreate {
 pub struct WsChannelCreate {
     pub name: String,
     pub desc: Option<String>,
-    pub position: i32, // idk what to do with this tbh
+    pub position: i64,
     pub guild_id: Uuid
 }
 
@@ -106,6 +118,8 @@ pub struct WsMemberCreate {
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(tag = "type", content = "data")]
 pub enum WsReceiveTypes {
+    // {"type":"MessageFetch"}
+    MessageFetch,
     // {"type":"MessageUpdate", "data":{"content":"",id:1}}
     MessageUpdate(WsMessageUpdate),
     // {"type":"MessageCreate", "data":{"content":"", room:""}}

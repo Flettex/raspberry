@@ -13,6 +13,18 @@ use sqlx::types::{
 use crate::format;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Message {
+    pub id: Uuid,
+    pub content: String,
+    #[serde(with = "format::date_format2")]
+    pub created_at: NaiveDateTime,
+    #[serde(with = "format::date_format2")]
+    pub edited_at: NaiveDateTime,
+    pub author_id: i64,
+    pub channel_id: Uuid,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct User {
     pub id: i64,
     pub username: String,
@@ -53,7 +65,7 @@ pub struct Channel {
     pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
-    pub position: i32,
+    pub position: i64,
     #[serde(with = "format::date_format2")]
     pub created_at: NaiveDateTime,
     pub guild_id: Uuid

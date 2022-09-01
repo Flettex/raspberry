@@ -45,7 +45,7 @@ macro_rules! view {
                 let captcha = CaptchaBuilder::new()
                     .length(5)
                     .width(130)
-                    .height(40)
+                    .height(50)
                     .dark_mode(false)
                     .complexity(5) // min: 1, max: 10
                     .build();

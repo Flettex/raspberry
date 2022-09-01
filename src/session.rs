@@ -12,7 +12,8 @@ use crate::messages::{
     ReadyEventType,
     MemberCreateType,
     MemberRemoveType,
-    ChannelCreateType
+    ChannelCreateType,
+    MessagesType
 };
 use crate::db::{
     self,
@@ -35,6 +36,7 @@ impl fmt::Display for WsReceiveTypes {
             WsReceiveTypes::GuildCreate(guild) => write!(f, "Creating guild named {}, described: {:?}\n Icon: {:?}", guild.name, guild.desc, guild.icon),
             WsReceiveTypes::ChannelCreate(chan) => write!(f, "Creating channel named {}, described: {:?}, Position: {}, Guild: {} ", chan.name, chan.desc, chan.position, chan.guild_id),
             WsReceiveTypes::MemberCreate(mem) => write!(f, "new member to guild {}", mem.guild_id),
+            WsReceiveTypes::MessageFetch => write!(f, "Fetching message"),
             WsReceiveTypes::Null => write!(f, "{}", "null"),
         }
     }
@@ -175,7 +177,7 @@ impl WsChatSession {
     
         // ready event
         self.send_event(MessageTypes::ReadyEvent(ReadyEventType{user: user.clone().into(), guilds: guildchannels})).await;
-        self.send_event(MessageTypes::MessageCreate(MessageCreateType{content: format!("Ready! Total visitors {}. User: {}", count, serde_json::to_string(&user.clone()).unwrap()), room: "Main".to_string()})).await;
+        self.send_event(MessageTypes::MessageCreate(MessageCreateType{content: format!("Ready! Total visitors {}. User: {}", count, serde_json::to_string(&models::UserClient::from(user.clone())).unwrap()), room: "Main".to_string()})).await;
         
         self.srv.send_message("Main", MessageTypes::MessageCreate(MessageCreateType{content: "Someone connected".to_string(), room: "Main".to_string()})).await;
         while let Some(Ok(msg)) = stream.next().await {
@@ -203,6 +205,9 @@ impl WsChatSession {
                     };
                     // println!("{}", val);
                     match val {
+                        WsReceiveTypes::MessageFetch => {
+                            self.send_event(MessageTypes::Messages(MessagesType{messages: vec![Message{}]})).await;
+                        }
                         WsReceiveTypes::MessageCreate(m) => {
                             if m.content.starts_with('/') {
                                 let v: Vec<&str> = m.content.splitn(2, ' ').collect();
@@ -261,7 +266,11 @@ impl WsChatSession {
                                 m.content.to_owned()
                             };
                             log::info!("{} {}", msg, id);
-                            self.srv.send_message(&m.room, MessageTypes::MessageCreate(MessageCreateType {content: msg.to_string(), room: m.room.clone()})).await
+                            if m.room == "Main" {
+                                self.srv.send_message(&m.room, MessageTypes::MessageCreate(MessageCreateType {content: msg.to_string(), room: m.room.clone()})).await;
+                            } else if db::ws_session::create_message(m.content, id.try_into().unwrap(), Uuid::parse_str(&m.room.clone()).unwrap(), &self.pool).await.is_ok() {
+                                self.srv.send_message(&m.room, MessageTypes::MessageCreate(MessageCreateType {content: msg.to_string(), room: m.room.clone()})).await;
+                            }
                         }
                         WsReceiveTypes::MessageUpdate(_) => {
                             // update msg

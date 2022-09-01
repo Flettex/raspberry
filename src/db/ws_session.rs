@@ -108,18 +108,6 @@ SELECT * FROM channel WHERE guild_id = $1
     ).fetch_all(pool).await
 }
 
-// pub async fn get_guild_by_id(guild_id: Uuid, pool: &PgPool) -> sqlx::Result<Guild> {
-//     sqlx::query_as!(
-//         Guild,
-//         r#"
-// SELECT * FROM guild WHERE id = $1;
-//         "#,
-//         guild_id
-//     )
-//     .fetch_one(pool)
-//     .await
-// }
-
 /* START: creates */
 
 pub async fn create_guild(id: i64, guild: WsGuildCreate, pool: &PgPool) -> sqlx::Result<Guild>  {
@@ -149,6 +137,18 @@ VALUES ($1, $2, $3, $4) RETURNING *
         }
         Err(err) => Err(err)
     }
+}
+
+pub async fn create_message(content: String, author_id: i64, channel_id: Uuid, pool: &PgPool) -> sqlx::Result<PgQueryResult> {
+    sqlx::query!(
+        r#"
+INSERT INTO message (content, author_id, channel_id)
+VALUES ($1, $2, $3)
+        "#,
+        content,
+        author_id,
+        channel_id
+    ).execute(pool).await
 }
 
 pub async fn create_channel(channel: WsChannelCreate, pool: &PgPool) -> sqlx::Result<Channel>  {
