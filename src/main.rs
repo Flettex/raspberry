@@ -97,7 +97,7 @@ DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
         let cors = Cors::default()
             .allowed_origin("http://localhost:3000")
             .allowed_origin_fn(|origin, _req_head| {
-                origin.as_bytes().starts_with(b"http://localhost")
+                origin.as_bytes().starts_with(b"https://pineapple-deploy.vercel.app") || origin.as_bytes().starts_with(b"http://localhost")
                     // || origin.as_bytes().starts_with(b"https://")
             })
             // set allowed methods list
