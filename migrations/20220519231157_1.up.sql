@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS "message" (
     "content"    text NOT NULL,
     "created_at" TIMESTAMP DEFAULT current_timestamp NOT NULL,
     "edited_at"  TIMESTAMP DEFAULT current_timestamp NOT NULL,  --- because you said null vals can cause issues
-    "author_id"  bigint NULL REFERENCES users(id) ON DELETE SET NULL,
+    "author_id"  bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     "channel_id" uuid NOT NULL REFERENCES channel(id) ON DELETE CASCADE
 );
 

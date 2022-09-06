@@ -28,7 +28,8 @@ use crate::{
     },
     session::{
         WsChatSession
-    }
+    }, PLACEHOLDER_UUID,
+    db
 };
 
 pub async fn get(
@@ -41,24 +42,32 @@ pub async fn get(
     if let Some(session_id) = id {
         let (response, session, stream) = actix_ws::handle(&req, stream)?;
         let session_cookie: AuthCookie = serde_json::from_str(&session_id.id().unwrap()).unwrap();
-        srv.insert(session_cookie.user_id.try_into().unwrap(), session.clone()).await;
         log::info!("Inserted session");
         let alive = Arc::new(Mutex::new(Instant::now()));
-        actix_web::rt::spawn(async move {
-            let chat_session = WsChatSession {
-                id: Arc::new(Mutex::new(session_cookie.user_id.try_into().unwrap())),
-                rooms: Arc::new(Mutex::new(HashSet::from(["Main".to_owned()]))),
-                name: Arc::new(Mutex::new(None)),
-                srv: srv.as_ref().clone(),
-                pool: pool.as_ref().clone(),
-                alive,
-                session,
-                session_id: session_cookie.session_id,
-                stream: Arc::new(Mutex::new(stream))
-            };
-            future::join(chat_session.hb(), chat_session.start()).await;
-        });
-        log::info!("Spawned");
+        match db::ws_session::get_user_by_session_id(session_cookie.session_id.clone(), pool.as_ref()).await {
+            Ok(user) => {
+                actix_web::rt::spawn(async move {
+                    let chat_session = WsChatSession {
+                        user: user.clone(),
+                        rooms: Arc::new(Mutex::new(HashSet::from([PLACEHOLDER_UUID.to_owned()]))),
+                        srv: srv.as_ref().clone(),
+                        pool: pool.as_ref().clone(),
+                        alive,
+                        session,
+                        session_id: session_cookie.session_id,
+                        // stream: Arc::new(Mutex::new(stream))
+                    };
+                    srv.insert_session(user.id as usize, chat_session.clone()).await;
+                    future::join(chat_session.hb(), chat_session.start(stream)).await;
+                });
+                log::info!("Spawned");
+            },
+            Err(_err) => {
+                println!("{:?}", _err);
+                let _ = session.close(None).await;
+            }
+        };
+        
         Ok(response)
     } else {
         Ok(HttpResponse::Ok().finish())

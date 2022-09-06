@@ -43,6 +43,8 @@ const IS_DEV: bool = option_env!("RAILWAY_STATIC_URL").is_none();
 
 const EMAIL_PASSWORD: &str = env!("EMAIL_PASSWORD");
 
+const PLACEHOLDER_UUID: &str = "5fe9d2ab-2174-4a30-8245-cc5de2563dce";
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));

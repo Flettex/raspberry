@@ -8,17 +8,21 @@ use std::{
 };
 use utoipa::{self, Component};
 
-use actix_ws::{Session};
+// use actix_ws::{Session};
 use futures::stream::{FuturesUnordered, StreamExt};
 use tokio::sync::Mutex;
 
 use serde::{Serialize, Deserialize};
 use serde_json;
 
-use crate::messages::{
-    MessageTypes,
-    MessageCreateType,
-    // MessageUpateType
+use crate::{
+    messages::{
+        MessageTypes,
+        Message
+        // MessageUpateType
+    },
+    session::WsChatSession,
+    db::models::User
 };
 
 #[derive(Serialize, Deserialize)]
@@ -88,7 +92,7 @@ impl utoipa::Component for ClientEvent {
                 "data": {
                     "content": "test123"
                 },
-                "room": "Main",
+                "room": "5fe9d2ab-2174-4a30-8245-cc5de2563dce",
                 "client_id": 1
             })))
             .into()
@@ -101,7 +105,7 @@ pub struct Chat {
 }
 
 pub struct ChatInner {
-    pub sessions: HashMap<usize, Vec<Session>>,
+    pub sessions: HashMap<usize, Vec<WsChatSession>>,
     pub rooms: HashMap<String, HashSet<usize>>,
     pub visitor_count: Arc<AtomicUsize>
 }
@@ -109,7 +113,7 @@ pub struct ChatInner {
 impl Chat {
     pub fn new(visitor_count: Arc<AtomicUsize>, room_names: Vec<String>) -> Self {
         let mut rooms = HashMap::new();
-        rooms.insert("Main".to_owned(), HashSet::new());
+        rooms.insert("5fe9d2ab-2174-4a30-8245-cc5de2563dce".to_owned(), HashSet::new());
         for name in room_names {
             rooms.insert(name, HashSet::new());
         }
@@ -119,6 +123,24 @@ impl Chat {
                 rooms,
                 visitor_count,
             })),
+        }
+    }
+
+    pub async fn insert_session(&self, user_id: usize, session: WsChatSession) {
+        let mut inner = self.inner.lock().await;
+        inner.sessions.entry(user_id).or_insert_with(Vec::new).push(session);
+    }
+
+    pub async fn find_user_by_id(&self, user_id: usize) -> Option<User> {
+        let inner = self.inner.lock().await;
+        if let Some(ses) = inner.sessions.get(&user_id) {
+            if ses.is_empty() {
+                None
+            } else {
+                Some(ses[0].user.clone())
+            }
+        } else {
+            None
         }
     }
 
@@ -138,26 +160,26 @@ impl Chat {
         inner.visitor_count.fetch_add(1, Ordering::SeqCst)
     }
 
-    pub async fn leave_room(&self, room: String, user_id: usize) {
-        log::info!("{} id leaving room {}", user_id, room);
+    pub async fn leave_room(&self, channel_id: String, user_id: usize) {
+        log::info!("{} id leaving channel_id {}", user_id, channel_id);
 
         {
             let mut inner = self.inner.lock().await;
-            if let Some(sessions) = inner.rooms.get_mut(&room) {
+            if let Some(sessions) = inner.rooms.get_mut(&channel_id) {
                 if sessions.remove(&user_id) {
                     if sessions.len() == 0 {
-                        inner.rooms.remove(&room);
+                        inner.rooms.remove(&channel_id);
                         return;
                     }
                     drop(inner);
-                    self.send_message(&room, MessageTypes::MessageCreate(MessageCreateType{content: "Someone left".to_string(), room: room.clone()})).await;
+                    self.send_message(&channel_id, MessageTypes::MessageCreate(Message::system("Someone left".to_string(), &channel_id.clone(), 0))).await;
                 }
             }
         }
     }
 
-    pub async fn join_room(&self, room: String, user_id: usize) {
-        log::info!("{} id joining room {}", user_id, room);
+    pub async fn join_room(&self, channel_id: String, user_id: usize) {
+        log::info!("{} id joining channel_id {}", user_id, channel_id);
         // let mut rooms = Vec::new();
         // drop MutexGuard
         {
@@ -173,7 +195,7 @@ impl Chat {
             // }
 
             inner.rooms
-                .entry(room.clone())
+                .entry(channel_id.clone())
                 .or_insert_with(HashSet::new)
                 .insert(user_id);    
         }
@@ -183,14 +205,14 @@ impl Chat {
         //     self.send_message(&room, MessageTypes::MessageCreate(MessageCreateType{content: "Someone disconnected".to_string()})).await;
         // }
 
-        self.send_message(&room, MessageTypes::MessageCreate(MessageCreateType{content: "Someone joined".to_string(), room: room.clone()})).await;
+        self.send_message(&channel_id, MessageTypes::MessageCreate(Message::system("Someone joined".to_string(), &channel_id.clone(), 0))).await;
     }
 
-    pub async fn insert(&self, user_id: usize, session: Session) {
-        let mut inner = self.inner.lock().await;
-        let values = inner.sessions.entry(user_id).or_insert_with(Vec::new);
-        values.push(session);
-    }
+    // pub async fn insert(&self, user_id: usize, session: Session) {
+    //     let mut inner = self.inner.lock().await;
+    //     let values = inner.sessions.entry(user_id).or_insert_with(Vec::new);
+    //     values.push(session);
+    // }
 
     pub async fn insert_id(&self, room: String, user_id: usize) {
         let mut inner = self.inner.lock().await;
@@ -207,14 +229,22 @@ impl Chat {
             unordered.push(async move {
                 let mut results = Vec::new();
                 for mut session in sessions {
-                    let res = session.text(serde_json::to_string(&msg).unwrap()).await;
+                    // let mut buf = [0u8; 100];
+                    // let writer = SliceWrite::new(&mut buf[..]);
+                    // let mut ser = Serializer::new(writer);
+                    // msg.serialize(&mut ser).unwrap();
+                    // let writer = ser.into_inner();
+                    // let size = writer.bytes_written();
+                    // let b = buf.to_vec();
+                    let res = session.session.binary(serde_cbor::to_vec(&msg).unwrap()).await;
+                    // let res = session.session.text(serde_json::to_string(&msg).unwrap()).await;
                     results.push(res.map(|_| session).map_err(|_| log::info!("Dropping session")));
                 }
                 (user_id, results)
             });
         }
         drop(inner);
-        let res = unordered.collect::<Vec<(usize, Vec<Result<Session, ()>>)>>().await;
+        let res = unordered.collect::<Vec<(usize, Vec<Result<WsChatSession, ()>>)>>().await;
         let mut inner = self.inner.lock().await;
         for (user_id, results) in res {
             inner.sessions.insert(user_id, results.into_iter().filter_map(|i| i.ok()).collect());
@@ -241,7 +271,8 @@ impl Chat {
                             let mut results = Vec::new();
                             for mut session in sessions {
                                 println!("{}", serde_json::to_string(&msg).unwrap());
-                                let res = session.text(serde_json::to_string(&msg).unwrap()).await;
+                                let res = session.session.binary(serde_cbor::to_vec(&msg).unwrap()).await;
+                                // let res = session.session.text(serde_json::to_string(&msg).unwrap()).await;
                                 results.push(res.map(|_| session).map_err(|_| log::info!("Dropping session")));
                             }
                             (user_id, results)
@@ -253,7 +284,7 @@ impl Chat {
             return;
         }
         drop(inner);
-        let res = unordered.collect::<Vec<(usize, Vec<Result<Session, ()>>)>>().await;
+        let res = unordered.collect::<Vec<(usize, Vec<Result<WsChatSession, ()>>)>>().await;
         let mut inner = self.inner.lock().await;
         for (user_id, results) in res {
             inner.sessions.insert(user_id, results.into_iter().filter_map(|i| i.ok()).collect());
@@ -268,7 +299,8 @@ impl Chat {
         if let Some(sessions) = inner.sessions.remove(&id) {
             let mut results = Vec::new();
             for mut session in sessions {
-                let res = session.text(serde_json::to_string(&msg).unwrap()).await;
+                let res = session.session.binary(serde_cbor::to_vec(&msg).unwrap()).await;
+                // let res = session.session.text(serde_json::to_string(&msg).unwrap()).await;
                 results.push(res.map(|_| session).map_err(|_| log::info!("Dropping session")));
             }
             inner.sessions.insert(id, results.into_iter().filter_map(|i| i.ok()).collect());

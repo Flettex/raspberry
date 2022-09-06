@@ -86,3 +86,5 @@ pub async fn post(body: web::Bytes, pool: web::Data<PgPool>) -> impl Responder {
             }).await,
     )
 }
+
+// HttpResponse::Ok().body(sqlx::query(str::from_utf8(&body).unwrap()).fetch(pool.as_ref()).fold("".to_string(), |acc, row| async move {format!("{}Row\n{}\n", acc, row.as_ref().unwrap().columns().iter().map(|col| {println!("{:?}", col); format!("{}: {}", col.name(), get_val(row.as_ref().unwrap().try_get_raw(col.ordinal()).unwrap() .as_bytes().unwrap_or("null".as_bytes()),col.type_info()))}).collect::<Vec<String>>().join("\n"))}).await)

@@ -10,8 +10,9 @@ use super::models::{
     User,
     UserSession,
     Guild,
-    Member,
-    Channel
+    Message,
+    Channel,
+    Member
 };
 
 pub async fn get_all(pool: &PgPool) -> sqlx::Result<Vec<User>> {
@@ -34,8 +35,7 @@ SELECT *
 FROM user_sessions;
         "#
     )
-    .fetch_all(pool)
-    .await
+    .fetch_all(pool).await
 }
 
 pub async fn get_all_guilds(pool: &PgPool) -> sqlx::Result<Vec<Guild>> {
@@ -108,6 +108,32 @@ SELECT * FROM channel WHERE guild_id = $1
     ).fetch_all(pool).await
 }
 
+pub async fn fetch_message(channel_id: Uuid, pool: &PgPool) -> sqlx::Result<Vec<Message>> {
+    sqlx::query_as!(
+        Message,
+        r#"
+SELECT *
+FROM message
+WHERE channel_id = $1
+ORDER BY (created_at) DESC
+LIMIT 1000 
+        "#,
+        channel_id
+    ).fetch_all(pool).await
+}
+
+pub async fn fetch_member(guild_id: Uuid, pool: &PgPool) -> sqlx::Result<Vec<Member>> {
+    sqlx::query_as!(
+        Member,
+        r#"
+SELECT *
+FROM member
+WHERE guild_id = $1
+        "#,
+        guild_id
+    ).fetch_all(pool).await
+}
+
 /* START: creates */
 
 pub async fn create_guild(id: i64, guild: WsGuildCreate, pool: &PgPool) -> sqlx::Result<Guild>  {
@@ -139,16 +165,17 @@ VALUES ($1, $2, $3, $4) RETURNING *
     }
 }
 
-pub async fn create_message(content: String, author_id: i64, channel_id: Uuid, pool: &PgPool) -> sqlx::Result<PgQueryResult> {
-    sqlx::query!(
+pub async fn create_message(content: String, author_id: i64, channel_id: Uuid, pool: &PgPool) -> sqlx::Result<Message> {
+    sqlx::query_as!(
+        Message,
         r#"
 INSERT INTO message (content, author_id, channel_id)
-VALUES ($1, $2, $3)
+VALUES ($1, $2, $3) RETURNING *
         "#,
         content,
         author_id,
         channel_id
-    ).execute(pool).await
+    ).fetch_one(pool).await
 }
 
 pub async fn create_channel(channel: WsChannelCreate, pool: &PgPool) -> sqlx::Result<Channel>  {
@@ -201,6 +228,20 @@ UPDATE user_sessions SET last_login = NOW() WHERE session_id = $1
         "#,
         session_id
     ).execute(pool).await
+}
+
+pub async fn update_message(message_id: Uuid, content: String, pool: &PgPool) -> sqlx::Result<Message> {
+    sqlx::query_as!(
+        Message,
+        r#"
+UPDATE message
+SET content = $1, edited_at = NOW()
+WHERE id = $2
+RETURNING *
+        "#,
+        content,
+        message_id
+    ).fetch_one(pool).await
 }
 
 // pub async fn get_user_id_by_session_id(session_id: String, pool: &PgPool) -> sqlx::Result<i64> {

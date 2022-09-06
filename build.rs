@@ -15,9 +15,12 @@ fn main() -> Result<(), Error> {
 
     for path in paths {
         let path_name = &path.as_ref().unwrap().path().display().to_string();
+        if path_name.starts_with("_") {
+            continue;
+        }
         let content = read_to_string(path_name)
             .expect(path_name);
-        contents.push_str(&format!("pub static {}: &str = r#\"{}\"#;", path.unwrap().file_name().to_str().unwrap().replace(".html", "").to_ascii_uppercase(), content.lines().map(|s| s.trim()).filter(|s| !s.is_empty()).collect::<Vec<&str>>().join("")));
+        contents.push_str(&format!("#[allow(dead_code)]pub static {}: &str = r#\"{}\"#;", path.unwrap().file_name().to_str().unwrap().replace(".html", "").to_ascii_uppercase(), content.lines().map(|s| s.trim()).filter(|s| !s.is_empty()).collect::<Vec<&str>>().join("")));
     }
     if Path::new("src/html.rs").exists() {
         if contents != read_to_string("src/html.rs")? {

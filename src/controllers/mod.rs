@@ -7,7 +7,7 @@ use actix_web::{
 use actix_session::Session;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::{SwaggerUi, Url};
-use std::collections::HashMap;
+// use std::collections::HashMap;
 use captcha_rs::{
     CaptchaBuilder
 };
@@ -22,7 +22,7 @@ pub mod default;
 pub mod admin;
 pub mod sqlx;
 pub mod verify;
-use self::admin::format_html;
+// use self::admin::format_html;
 use crate::html;
 use crate::server::{
     LoginEvent,
@@ -81,14 +81,42 @@ pub fn config(cfg: &mut web::ServiceConfig) {
         services![
             view!("/", html::INDEX)
                 .route(web::post().to(index::post)),
-            view!("/chat", html::CHAT),
-            view!("/signup", html::SIGNUP, true)
+            // view!("/chat", html::CHAT),
+            web::resource("/signup")
+                .route(web::get().to(|session: Session| async move {
+                    let captcha = CaptchaBuilder::new()
+                        .length(5)
+                        .width(130)
+                        .height(50)
+                        .dark_mode(false)
+                        .complexity(5) // min: 1, max: 10
+                        .build();
+                    session.insert("captcha", captcha.text).unwrap();
+                    HttpResponse::Ok()
+                        .content_type(ContentType::plaintext())
+                        .body(captcha.base_img)
+                }))
                 .route(web::post().to(signup::post)),
-            view!("/login", html::LOGIN, true)
+            web::resource("/login")
+                .route(web::get().to(|session: Session| async move {
+                    let captcha = CaptchaBuilder::new()
+                        .length(5)
+                        .width(130)
+                        .height(50)
+                        .dark_mode(false)
+                        .complexity(5) // min: 1, max: 10
+                        .build();
+                    session.insert("captcha", captcha.text).unwrap();
+                    HttpResponse::Ok()
+                        .content_type(ContentType::plaintext())
+                        .body(captcha.base_img)
+                }))
                 .route(web::post().to(login::post)),
-            view!("/logout", html::LOGOUT)
+            // view!("/logout", html::LOGOUT)
+            web::resource("/logout")
                 .route(web::delete().to(logout::delete)),
-            view!("/verify", html::VERIFY)
+            // view!("/verify", html::VERIFY)
+            web::resource("verify")
                 .route(web::post().to(verify::post)),
             web::resource("/count")
                 .route(web::get().to(count::get)),
