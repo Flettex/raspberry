@@ -1,13 +1,6 @@
 FROM lukemathwalker/cargo-chef:latest-rust-bullseye AS chef
 WORKDIR /raspberry
 
-# Literally so dumb I have to set up SSL
-RUN apt-get install -y --reinstall ca-certificates && \
-    mkdir /usr/local/share/ca-certificates/cacert.org && \
-    wget -P /usr/local/share/ca-certificates/cacert.org http://www.cacert.org/certs/root.crt http://www.cacert.org/certs/class3.crt && \
-    update-ca-certificates && \
-    git config --global http.sslCAinfo /etc/ssl/certs/ca-certificates.crt
-
 FROM chef AS planner
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
@@ -29,4 +22,9 @@ FROM debian:bullseye-slim AS runtime
 WORKDIR /raspberry
 COPY --from=builder /raspberry/target/release/raspberry-backend-app /usr/local/bin
 EXPOSE 8080
+# Literally so dumb I have to set up SSL
+RUN apt-get update && apt-get install -y --reinstall ca-certificates && apt-get install -y wget &&\
+    mkdir /usr/local/share/ca-certificates/cacert.org && \
+    wget -P /usr/local/share/ca-certificates/cacert.org http://www.cacert.org/certs/root.crt http://www.cacert.org/certs/class3.crt && \
+    update-ca-certificates
 ENTRYPOINT ["/usr/local/bin/raspberry-backend-app"]
