@@ -100,10 +100,11 @@ DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
                 origin.as_bytes().starts_with(b"https://pineapple-deploy.vercel.app") || origin.as_bytes().starts_with(b"http://localhost")
                     // || origin.as_bytes().starts_with(b"https://")
             })
+            .supports_credentials()
             // set allowed methods list
             .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
             // set allowed request header list
-            .allowed_headers(&[header::AUTHORIZATION, header::ACCEPT])
+            .allowed_headers(&[header::AUTHORIZATION, header::ACCEPT, header::COOKIE])
             // add header to allowed list
             .allowed_header(header::CONTENT_TYPE)
             // set list of headers that are safe to expose
@@ -118,8 +119,7 @@ DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
                     secret_key.clone()
                 )
                 .cookie_name("auth-cookie".to_string())
-                .cookie_same_site(SameSite::Lax)
-                .cookie_domain(if IS_DEV {Some("http://localhost".to_string())} else {Some("https://flettex-backend.fly.dev".to_string())})
+                .cookie_same_site(SameSite::None)
                 .cookie_http_only(true)
                 .cookie_secure(if IS_DEV {false} else {true})
                 .cookie_content_security(CookieContentSecurity::Private)

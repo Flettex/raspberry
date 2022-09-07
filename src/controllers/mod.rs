@@ -22,6 +22,7 @@ pub mod default;
 pub mod admin;
 pub mod sqlx;
 pub mod verify;
+pub mod samesite;
 // use self::admin::format_html;
 use crate::html;
 use crate::server::{
@@ -124,6 +125,8 @@ pub fn config(cfg: &mut web::ServiceConfig) {
                 .route(web::get().to(|| {
                     HttpResponse::Ok()
                 })),
+            web::resource("/samesite")
+                .route(web::get().to(samesite::get)),
             web::resource("/ws")
                 .route(web::get().to(ws::get)),
             if IS_DEV {
