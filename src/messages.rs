@@ -161,12 +161,12 @@ pub struct WsMessageUpdate {
 
 // supposed to be used for sessions, but not used atm
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct WsDevice {
-    pub os: String,
-    pub device: String,
-    pub browser: String
-}
+// #[derive(Serialize, Deserialize, Clone, Debug)]
+// pub struct WsDevice {
+//     pub os: String,
+//     pub device: String,
+//     pub browser: String
+// }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct WsGuildCreate {

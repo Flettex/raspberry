@@ -16,7 +16,17 @@ use crate::db::signup::{
     create_password
 };
 use serde_json::json;
+use utoipa;
 
+#[utoipa::path(
+    post,
+    path = "/signup",
+    responses(
+        (status = 200, description = "Successful Response", body = String),
+        (status = 400, description = "Duplicate email or username or the database failed to create a session", body = String)
+    ),
+    request_body(content = SignUpEvent, description = "user email, user password, username", content_type = "application/json")
+)]
 pub async fn post(
     body: web::Json<server::SignUpEvent>,
     pool: web::Data<PgPool>,
@@ -24,6 +34,8 @@ pub async fn post(
     req: HttpRequest,
     session: Session
 ) -> HttpResponse {
+    let useragent = req.headers().get("user-agent").unwrap().to_str().ok();
+    println!("USER AGENT {}", useragent.unwrap());
     if let Some(_) = id {
         return HttpResponse::Ok().finish();
     }

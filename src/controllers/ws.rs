@@ -44,6 +44,7 @@ pub async fn get(
         let session_cookie: AuthCookie = serde_json::from_str(&session_id.id().unwrap()).unwrap();
         log::info!("Inserted session");
         let alive = Arc::new(Mutex::new(Instant::now()));
+        println!("{}", session_cookie.session_id.clone());
         match db::ws_session::get_user_by_session_id(session_cookie.session_id.clone(), pool.as_ref()).await {
             Ok(user) => {
                 actix_web::rt::spawn(async move {

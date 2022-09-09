@@ -27,7 +27,8 @@ pub mod samesite;
 use crate::html;
 use crate::server::{
     LoginEvent,
-    ClientEvent
+    ClientEvent,
+    SignUpEvent
 };
 use crate::IS_DEV;
 
@@ -72,9 +73,10 @@ pub fn config(cfg: &mut web::ServiceConfig) {
     #[openapi(
         handlers(
             index::post,
-            login::post
+            login::post,
+            signup::post
         ),
-        components(LoginEvent, ClientEvent)
+        components(LoginEvent, ClientEvent, SignUpEvent)
     )]
     struct ApiDoc;
 

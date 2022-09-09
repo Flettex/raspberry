@@ -41,11 +41,15 @@ pub struct LoginEvent {
     pub code: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Component)]
 pub struct SignUpEvent {
+    #[component(example = "test")]
     pub username: String,
+    #[component(example = "test@test.com")]
     pub email: String,
+    #[component(example = "abcd1234")]
     pub password: String,
+    #[component(example = "bruhmeme")]
     pub code: String,
 }
 
