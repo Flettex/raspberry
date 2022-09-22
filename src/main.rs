@@ -18,6 +18,13 @@ use actix_web::{
 };
 use actix_http::header;
 use actix_cors::Cors;
+use clokwerk::{Scheduler, TimeUnits};
+// Import week days and WeekDay
+// use clokwerk::Interval::*;
+// use clokwerk::Interval::Days;
+
+use chrono::offset::Utc;
+// use chrono::Timelike;
 
 use sqlx::postgres::PgPool;
 
@@ -61,15 +68,30 @@ async fn main() -> std::io::Result<()> {
     .expect("Failed to create pool");
 
     let pool2 = pool.clone();
-    // Not used at the moment
-    let _pool3 = pool.clone();
+
+    let pool3 = pool.clone();
+
+    let mut scheduler = Scheduler::with_tz(Utc);
 
     actix_web::rt::spawn(async move {
+        log::info!("WIPING SESSIONS");
         sqlx::query!(
             r#"
 DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
             "#
-        ).execute(&pool2).await.unwrap();
+        ).execute(&pool3).await.unwrap();
+    });
+
+    scheduler.every(1.days()).at("00:00").run(move || {
+        let pool4 = pool2.clone();
+        actix_web::rt::spawn(async move {
+            log::info!("WIPING SESSIONS");
+            sqlx::query!(
+                r#"
+DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
+                "#
+            ).execute(&pool4).await.unwrap();
+        });
     });
 
     // db::start::get_all_channel_names(&pool3).await.unwrap()

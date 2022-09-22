@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS "channel" (
     "created_at"  TIMESTAMP DEFAULT current_timestamp NOT NULL,
     "guild_id"    uuid NOT NULL REFERENCES guild(id) ON DELETE CASCADE,
     UNIQUE (position, guild_id)
+    UNIQUE (name, guild_id)
 );
 
 

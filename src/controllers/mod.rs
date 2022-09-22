@@ -71,12 +71,12 @@ macro_rules! no_resource {
 pub fn config(cfg: &mut web::ServiceConfig) {
     #[derive(OpenApi)]
     #[openapi(
-        handlers(
+        paths(
             index::post,
             login::post,
             signup::post
         ),
-        components(LoginEvent, ClientEvent, SignUpEvent)
+        components(schemas(LoginEvent, ClientEvent, SignUpEvent))
     )]
     struct ApiDoc;
 

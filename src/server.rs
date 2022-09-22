@@ -6,7 +6,8 @@ use std::{
     },
     clone::Clone,
 };
-use utoipa::{self, Component};
+use utoipa::{self, ToSchema};
+use itertools::Itertools;
 
 // use actix_ws::{Session};
 use futures::stream::{FuturesUnordered, StreamExt};
@@ -31,25 +32,25 @@ pub struct AuthCookie {
     pub session_id: String
 }
 
-#[derive(Serialize, Deserialize, Component)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct LoginEvent {
-    #[component(example = "test@test.com")]
+    #[schema(example = "test@test.com")]
     pub email: String,
-    #[component(example = "abcd1234")]
+    #[schema(example = "abcd1234")]
     pub password: String,
-    #[component(example = "bruhmeme")]
+    #[schema(example = "bruhmeme")]
     pub code: String,
 }
 
-#[derive(Serialize, Deserialize, Component)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct SignUpEvent {
-    #[component(example = "test")]
+    #[schema(example = "test")]
     pub username: String,
-    #[component(example = "test@test.com")]
+    #[schema(example = "test@test.com")]
     pub email: String,
-    #[component(example = "abcd1234")]
+    #[schema(example = "abcd1234")]
     pub password: String,
-    #[component(example = "bruhmeme")]
+    #[schema(example = "bruhmeme")]
     pub code: String,
 }
 
@@ -66,29 +67,29 @@ pub struct ClientEvent {
     pub room: String,
 }
 
-impl utoipa::Component for ClientEvent {
-    fn component() -> utoipa::openapi::schema::Component {
+impl utoipa::ToSchema for ClientEvent {
+    fn schema() -> utoipa::openapi::schema::Schema {
         utoipa::openapi::ObjectBuilder::new()
             .property(
                 "client_id",
-                utoipa::openapi::PropertyBuilder::new()
-                    .component_type(utoipa::openapi::ComponentType::Integer)
-                    .format(Some(utoipa::openapi::ComponentFormat::Int64)),
+                utoipa::openapi::ObjectBuilder::new()
+                    .schema_type(utoipa::openapi::SchemaType::Integer)
+                    .format(Some(utoipa::openapi::SchemaFormat::Int64)),
             )
             .required("client_id")
             .property(
                 "room",
-                utoipa::openapi::Property::new(utoipa::openapi::ComponentType::String),
+                utoipa::openapi::Object::with_type(utoipa::openapi::SchemaType::String),
             )
             .required("room")
             .property(
                 "type",
-                utoipa::openapi::Property::new(utoipa::openapi::ComponentType::String),
+                utoipa::openapi::Object::with_type(utoipa::openapi::SchemaType::String),
             )
             .required("room")
             .property(
                 "data",
-                utoipa::openapi::Property::new(utoipa::openapi::ComponentType::Object),
+                utoipa::openapi::Object::with_type(utoipa::openapi::SchemaType::Object),
             )
             .required("data")
             .example(Some(serde_json::json!({
@@ -130,6 +131,15 @@ impl Chat {
         }
     }
 
+    pub async fn get_sessions_by_user_id(&self, user_id: usize) -> Option<Vec<WsChatSession>> {
+        let inner = self.inner.lock().await;
+        if let Some(_) = inner.sessions.get(&user_id) {
+            Some(inner.sessions[&user_id].to_owned())
+        } else {
+            None
+        }
+    }
+
     pub async fn insert_session(&self, user_id: usize, session: WsChatSession) {
         let mut inner = self.inner.lock().await;
         inner.sessions.entry(user_id).or_insert_with(Vec::new).push(session);
@@ -155,7 +165,8 @@ impl Chat {
         for key in inner.rooms.keys() {
             rooms.push(key.to_owned())
         }
-
+        drop(inner);
+        rooms.push(self.get_sessions_by_user_id(2).await.unwrap().iter().map(|ses| ("ses: ".to_string() + &ses.session_id).to_string()).join(", "));
         rooms
     }
 

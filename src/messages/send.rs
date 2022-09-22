@@ -1,8 +1,3 @@
-use chrono::{NaiveDateTime, Utc, NaiveDate};
-use serde::{self, Serialize, Deserialize};
-// use sqlx::types::Uuid;
-use std::clone::Clone;
-use sqlx::types::Uuid;
 use crate::db::models::{
     self,
     Guild,
@@ -10,9 +5,13 @@ use crate::db::models::{
     GuildChannels,
     Channel,
     Member,
-    User
+    User,
 };
 use crate::format;
+use chrono::{NaiveDateTime, Utc, NaiveDate};
+use serde::{self, Serialize, Deserialize};
+use std::clone::Clone;
+use sqlx::types::Uuid;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Message {
@@ -126,103 +125,4 @@ impl From<User> for UserFetchType {
             is_superuser: u.is_superuser
         }
     }
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(tag = "type", content = "data")]
-pub enum MessageTypes {
-    Messages(MessagesType),
-    Members(MembersType),
-    MessageCreate(Message),
-    MessageUpdate(Message),
-    ReadyEvent(ReadyEventType),
-    GuildCreate(GuildCreateType),
-    ChannelCreate(ChannelCreateType),
-    MemberCreate(MemberCreateType),
-    MemberRemove(MemberRemoveType),
-    UserFetch(UserFetchType)
-}
-
-/* Ws Events */
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct WsMessageCreate {
-    pub content: String,
-    pub channel_id: String,
-    pub nonce: Uuid
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct WsMessageUpdate {
-    pub id: Uuid,
-    pub content: String,
-    pub nonce: Uuid
-}
-
-// supposed to be used for sessions, but not used atm
-
-// #[derive(Serialize, Deserialize, Clone, Debug)]
-// pub struct WsDevice {
-//     pub os: String,
-//     pub device: String,
-//     pub browser: String
-// }
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct WsGuildCreate {
-    pub name: String,
-    pub desc: Option<String>,
-    pub icon: Option<String>
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct WsChannelCreate {
-    pub name: String,
-    pub desc: Option<String>,
-    pub position: i64,
-    pub guild_id: Uuid
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct WsMemberCreate {
-    pub guild_id: Uuid
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct WsMessageFetchType {
-    pub channel_id: Uuid
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct WsMemberFetchType {
-    pub guild_id: Uuid
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct WsUserFetchType {
-    pub id: usize
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(tag = "type", content = "data")]
-pub enum WsReceiveTypes {
-    // {"type":"UserFetch", "id": 0}
-    UserFetch(WsUserFetchType),
-    // {"type":"MessageFetch", "channel_id": "bruh-bruh-bruh-bruh"}
-    MessageFetch(WsMessageFetchType),
-    // {"type":"MemberFetch"}
-    MemberFetch(WsMemberFetchType),
-    // {"type":"MessageUpdate", "data":{"content":"",id:1}}
-    MessageUpdate(WsMessageUpdate),
-    // {"type":"MessageCreate", "data":{"content":"", room:""}}
-    MessageCreate(WsMessageCreate),
-    // {"type":"GuildCreate", "data":{"name": "breme's server"}}
-    GuildCreate(WsGuildCreate),
-    // {"type":"ChannelCreate", "data":{"name": "dumbdumbs", "position": 0, "guild_id": "bruh-bruh-bruh-bruh"}}
-    ChannelCreate(WsChannelCreate),
-    // {"type": "MemberCreate", "data":{"guild_id": "bruh-bruh-bruh-bruh"}}
-    MemberCreate(WsMemberCreate),
-    // {"type":"Null"}
-    // used for testing purposes
-    Null
 }
