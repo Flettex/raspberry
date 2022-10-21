@@ -11,10 +11,10 @@ use actix_web::{
     Error
 };
 use actix_identity::Identity;
-// use actix_ws::{Message};
-// use actix_rt;
+
+use serde::{Deserialize};
+
 use tokio::sync::Mutex;
-// use futures::StreamExt;
 use futures::future;
 
 use sqlx::PgPool;
@@ -26,11 +26,15 @@ use crate::{
         // MessageCreateType,
         AuthCookie
     },
-    session::{
-        WsChatSession
-    }, PLACEHOLDER_UUID,
+    session::WsChatSession,
+    PLACEHOLDER_UUID,
     db
 };
+
+#[derive(Deserialize)]
+pub struct WsQuery {
+    pub recv_type: Option<String>
+}
 
 pub async fn get(
     req: HttpRequest,
@@ -38,8 +42,21 @@ pub async fn get(
     srv: web::Data<server::Chat>,
     pool: web::Data<PgPool>,
     id: Option<Identity>,
+    query: web::Query<WsQuery>
 ) -> Result<HttpResponse, Error> {
     if let Some(session_id) = id {
+        let recv_type = match query.into_inner().recv_type {
+            Some(t) => {
+                if t == "json".to_string() {
+                    "json".to_string()
+                } else if t == "cbor".to_string() {
+                    "cbor".to_string()
+                } else {
+                    "cbor".to_string()
+                }
+            }
+            None => "json".to_string()
+        };
         let (response, session, stream) = actix_ws::handle(&req, stream)?;
         let session_cookie: AuthCookie = serde_json::from_str(&session_id.id().unwrap()).unwrap();
         log::info!("Inserted session");
@@ -56,6 +73,7 @@ pub async fn get(
                         alive,
                         session,
                         session_id: session_cookie.session_id,
+                        recv_type
                         // stream: Arc::new(Mutex::new(stream))
                     };
                     srv.insert_session(user.id as usize, chat_session.clone()).await;
@@ -68,7 +86,7 @@ pub async fn get(
                 let _ = session.close(None).await;
             }
         };
-        
+
         Ok(response)
     } else {
         Ok(HttpResponse::Ok().finish())

@@ -10,6 +10,7 @@ use super::{
     send::*
 };
 use enum_dispatch::enum_dispatch;
+use raspberry_macros::ratelimit;
 
 #[async_trait]
 #[enum_dispatch]
@@ -18,6 +19,7 @@ pub trait Handler {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[ratelimit(1)]
 pub struct WsMessageCreate {
     pub content: String,
     pub channel_id: String,
@@ -25,6 +27,7 @@ pub struct WsMessageCreate {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[ratelimit(2)]
 pub struct WsMessageUpdate {
     pub id: Uuid,
     pub content: String,
@@ -32,6 +35,7 @@ pub struct WsMessageUpdate {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[ratelimit(60)]
 pub struct WsGuildCreate {
     pub name: String,
     pub desc: Option<String>,

@@ -62,6 +62,8 @@ pub struct WsChatSession {
     pub session_id: String,
 
     pub session: Session,
+
+    pub recv_type: String
 }
 
 impl WsChatSession {
@@ -79,8 +81,11 @@ impl WsChatSession {
 
     pub async fn send_event(&self, msg: MessageTypes) {
         // println!("{}", serde_json::to_string(&msg).unwrap_or("Something failed idk".to_string()));
-        self.session.clone().binary(serde_cbor::to_vec(&msg).unwrap()).await.unwrap()
-        // self.session.clone().text(serde_json::to_string(&msg).unwrap()).await.unwrap();
+        if self.recv_type == "json".to_owned() {
+            self.session.clone().text(serde_json::to_string(&msg).unwrap()).await.unwrap()
+        } else {
+            self.session.clone().binary(serde_cbor::to_vec(&msg).unwrap()).await.unwrap()
+        }
     }
 
     pub async fn hb(&self) {
@@ -144,7 +149,7 @@ impl WsChatSession {
         };
 
         let mut guildchannels: Vec<models::GuildChannels> = vec![];
-    
+
         // do smth about each guild the user is in
         for guild in guilds.clone() {
             let channels = db::ws_session::get_channels_by_guild_id(guild.id, &self.pool).await.unwrap();
@@ -162,11 +167,11 @@ impl WsChatSession {
                 self.srv.join_room(channel.id.to_string(), self.user.id as usize).await;
             }
         }
-    
+
         // ready event
         self.send_event(MessageTypes::ReadyEvent(ReadyEventType{user: self.user.clone().into(), guilds: guildchannels})).await;
         self.send_event(MessageTypes::MessageCreate(Msg::system(format!("Ready! Total visitors {}. User: {}", count, serde_json::to_string(&models::UserClient::from(self.user.clone())).unwrap()), PLACEHOLDER_UUID, 0))).await;
-        
+
         self.srv.send_message(PLACEHOLDER_UUID, MessageTypes::MessageCreate(Msg::system("Someone connected".to_string(), PLACEHOLDER_UUID, 0))).await;
         while let Some(Ok(msg)) = stream.next().await {
             log::debug!("WEBSOCKET MESSAGE: {:?}", msg);

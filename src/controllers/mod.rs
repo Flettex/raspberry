@@ -84,6 +84,10 @@ pub fn config(cfg: &mut web::ServiceConfig) {
         services![
             view!("/", html::INDEX)
                 .route(web::post().to(index::post)),
+            web::resource("/health")
+                .route(web::get().to(|| {
+                    HttpResponse::Ok()
+                })),
             // view!("/chat", html::CHAT),
             web::resource("/signup")
                 .route(web::get().to(|session: Session| async move {
@@ -123,14 +127,14 @@ pub fn config(cfg: &mut web::ServiceConfig) {
                 .route(web::post().to(verify::post)),
             web::resource("/count")
                 .route(web::get().to(count::get)),
-            web::resource("/health")
-                .route(web::get().to(|| {
-                    HttpResponse::Ok()
-                })),
             web::resource("/samesite")
                 .route(web::get().to(samesite::get)),
             web::resource("/ws")
                 .route(web::get().to(ws::get)),
+            // web::resource("/be")
+            //     .route(web::get().to(|| {
+            //         HttpResponse::Ok()
+            //     })),
             if IS_DEV {
                 web::resource("/admin")
                     .route(web::get().to(admin::get))

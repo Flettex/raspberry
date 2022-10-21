@@ -212,7 +212,7 @@ impl Chat {
             inner.rooms
                 .entry(channel_id.clone())
                 .or_insert_with(HashSet::new)
-                .insert(user_id);    
+                .insert(user_id);
         }
 
         // log::info!("ROOMS: {:?}", rooms);
@@ -251,7 +251,11 @@ impl Chat {
                     // let writer = ser.into_inner();
                     // let size = writer.bytes_written();
                     // let b = buf.to_vec();
-                    let res = session.session.binary(serde_cbor::to_vec(&msg).unwrap()).await;
+                    let res = if session.recv_type == "json".to_owned() {
+                        session.session.text(serde_json::to_string(&msg).unwrap()).await
+                    } else {
+                        session.session.binary(serde_cbor::to_vec(&msg).unwrap()).await
+                    };
                     // let res = session.session.text(serde_json::to_string(&msg).unwrap()).await;
                     results.push(res.map(|_| session).map_err(|_| log::info!("Dropping session")));
                 }
@@ -275,7 +279,7 @@ impl Chat {
         log::info!("SENDING TO ROOM: {}", room);
         if let Some(users) = inner.rooms.get(room) {
             log::info!("ROOM HAS USERS: {:?}", users);
-            
+
             let users_cloned = users.clone();
             for (user_id, _) in inner.sessions.clone() {
                 if users_cloned.contains(&user_id) {
@@ -286,7 +290,11 @@ impl Chat {
                             let mut results = Vec::new();
                             for mut session in sessions {
                                 println!("{}", serde_json::to_string(&msg).unwrap());
-                                let res = session.session.binary(serde_cbor::to_vec(&msg).unwrap()).await;
+                                let res = if session.recv_type == "json".to_owned() {
+                                    session.session.text(serde_json::to_string(&msg).unwrap()).await
+                                } else {
+                                    session.session.binary(serde_cbor::to_vec(&msg).unwrap()).await
+                                };
                                 // let res = session.session.text(serde_json::to_string(&msg).unwrap()).await;
                                 results.push(res.map(|_| session).map_err(|_| log::info!("Dropping session")));
                             }
@@ -314,7 +322,11 @@ impl Chat {
         if let Some(sessions) = inner.sessions.remove(&id) {
             let mut results = Vec::new();
             for mut session in sessions {
-                let res = session.session.binary(serde_cbor::to_vec(&msg).unwrap()).await;
+                let res = if session.recv_type == "json".to_owned() {
+                    session.session.text(serde_json::to_string(&msg).unwrap()).await
+                } else {
+                    session.session.binary(serde_cbor::to_vec(&msg).unwrap()).await
+                };
                 // let res = session.session.text(serde_json::to_string(&msg).unwrap()).await;
                 results.push(res.map(|_| session).map_err(|_| log::info!("Dropping session")));
             }
