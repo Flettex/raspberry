@@ -36,4 +36,4 @@ rand_core = { version = "0.6.3", features = ["std"] }
 enum_dispatch = "0.3.8"
 itertools = "0.10"
 clokwerk = "0.3.5"
-raspberry_macros = { path = "../../packages/raspberry_macro" }
+raspberry_macros = { path = "../../packages/raspberry_macros" }

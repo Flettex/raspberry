@@ -289,7 +289,7 @@ impl Chat {
                         unordered.push(async move {
                             let mut results = Vec::new();
                             for mut session in sessions {
-                                println!("{}", serde_json::to_string(&msg).unwrap());
+                                // println!("{}", serde_json::to_string(&msg).unwrap());
                                 let res = if session.recv_type == "json".to_owned() {
                                     session.session.text(serde_json::to_string(&msg).unwrap()).await
                                 } else {

@@ -55,8 +55,9 @@ pub async fn get(
                     "cbor".to_string()
                 }
             }
-            None => "json".to_string()
+            None => "cbor".to_string()
         };
+        log::info!("recv type: {}", recv_type);
         let (response, session, stream) = actix_ws::handle(&req, stream)?;
         let session_cookie: AuthCookie = serde_json::from_str(&session_id.id().unwrap()).unwrap();
         log::info!("Inserted session");
