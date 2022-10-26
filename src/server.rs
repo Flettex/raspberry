@@ -23,7 +23,8 @@ use crate::{
         // MessageUpateType
     },
     session::WsChatSession,
-    db::models::User
+    db::models::User,
+    controllers::ws::WsMsgType
 };
 
 #[derive(Serialize, Deserialize)]
@@ -251,10 +252,9 @@ impl Chat {
                     // let writer = ser.into_inner();
                     // let size = writer.bytes_written();
                     // let b = buf.to_vec();
-                    let res = if session.recv_type == "json".to_owned() {
-                        session.session.text(serde_json::to_string(&msg).unwrap()).await
-                    } else {
-                        session.session.binary(serde_cbor::to_vec(&msg).unwrap()).await
+                    let res = match session.recv_type {
+                        WsMsgType::Json => session.session.text(serde_json::to_string(&msg).unwrap()).await,
+                        WsMsgType::Cbor => session.session.binary(serde_cbor::to_vec(&msg).unwrap()).await
                     };
                     // let res = session.session.text(serde_json::to_string(&msg).unwrap()).await;
                     results.push(res.map(|_| session).map_err(|_| log::info!("Dropping session")));
@@ -290,10 +290,9 @@ impl Chat {
                             let mut results = Vec::new();
                             for mut session in sessions {
                                 // println!("{}", serde_json::to_string(&msg).unwrap());
-                                let res = if session.recv_type == "json".to_owned() {
-                                    session.session.text(serde_json::to_string(&msg).unwrap()).await
-                                } else {
-                                    session.session.binary(serde_cbor::to_vec(&msg).unwrap()).await
+                                let res = match session.recv_type {
+                                    WsMsgType::Json => session.session.text(serde_json::to_string(&msg).unwrap()).await,
+                                    WsMsgType::Cbor => session.session.binary(serde_cbor::to_vec(&msg).unwrap()).await
                                 };
                                 // let res = session.session.text(serde_json::to_string(&msg).unwrap()).await;
                                 results.push(res.map(|_| session).map_err(|_| log::info!("Dropping session")));
@@ -322,10 +321,9 @@ impl Chat {
         if let Some(sessions) = inner.sessions.remove(&id) {
             let mut results = Vec::new();
             for mut session in sessions {
-                let res = if session.recv_type == "json".to_owned() {
-                    session.session.text(serde_json::to_string(&msg).unwrap()).await
-                } else {
-                    session.session.binary(serde_cbor::to_vec(&msg).unwrap()).await
+                let res = match session.recv_type {
+                    WsMsgType::Json => session.session.text(serde_json::to_string(&msg).unwrap()).await,
+                    WsMsgType::Cbor => session.session.binary(serde_cbor::to_vec(&msg).unwrap()).await
                 };
                 // let res = session.session.text(serde_json::to_string(&msg).unwrap()).await;
                 results.push(res.map(|_| session).map_err(|_| log::info!("Dropping session")));

@@ -36,6 +36,12 @@ pub struct WsQuery {
     pub recv_type: Option<String>
 }
 
+#[derive(Clone)]
+pub enum WsMsgType {
+    Json,
+    Cbor
+}
+
 pub async fn get(
     req: HttpRequest,
     stream: web::Payload,
@@ -48,16 +54,15 @@ pub async fn get(
         let recv_type = match query.into_inner().recv_type {
             Some(t) => {
                 if t == "json".to_string() {
-                    "json".to_string()
+                    WsMsgType::Json
                 } else if t == "cbor".to_string() {
-                    "cbor".to_string()
+                    WsMsgType::Cbor
                 } else {
-                    "cbor".to_string()
+                    WsMsgType::Cbor
                 }
             }
-            None => "cbor".to_string()
+            None => WsMsgType::Cbor
         };
-        log::info!("recv type: {}", recv_type);
         let (response, session, stream) = actix_ws::handle(&req, stream)?;
         let session_cookie: AuthCookie = serde_json::from_str(&session_id.id().unwrap()).unwrap();
         log::info!("Inserted session");

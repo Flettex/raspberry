@@ -14,17 +14,12 @@ use actix_web::{
     HttpServer,
     middleware::Logger,
     cookie::{SameSite, Key, time::Duration},
-    // dev::Service as _
 };
 use actix_http::header;
 use actix_cors::Cors;
 use clokwerk::{Scheduler, TimeUnits};
-// Import week days and WeekDay
-// use clokwerk::Interval::*;
-// use clokwerk::Interval::Days;
 
 use chrono::offset::Utc;
-// use chrono::Timelike;
 
 use sqlx::postgres::PgPool;
 
@@ -120,7 +115,8 @@ DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
             .allowed_origin("http://localhost:3000")
             .allowed_origin_fn(|origin, _req_head| {
                 origin.as_bytes().starts_with(b"https://pineapple-deploy.vercel.app") || origin.as_bytes().starts_with(b"http://localhost")
-                    // || origin.as_bytes().starts_with(b"https://")
+                    || origin.as_bytes().starts_with(b"http://127.0.0.1")
+                    || origin.as_bytes().starts_with(b"https://gearsgoround.com")
             })
             .supports_credentials()
             // set allowed methods list

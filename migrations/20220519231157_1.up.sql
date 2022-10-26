@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS "channel" (
     "position"    bigint NOT NULL CHECK ("position" >= 0),
     "created_at"  TIMESTAMP DEFAULT current_timestamp NOT NULL,
     "guild_id"    uuid NOT NULL REFERENCES guild(id) ON DELETE CASCADE,
-    UNIQUE (position, guild_id)
+    UNIQUE (position, guild_id),
     UNIQUE (name, guild_id)
 );
 
@@ -100,7 +100,14 @@ CREATE TABLE IF NOT EXISTS "invite" (
     "guild_id"   uuid NOT NULL UNIQUE REFERENCES guild(id) ON DELETE CASCADE
 );
 
-CREATE TYPE relation_type AS ENUM ('outgoing', 'ongoing', 'friend', 'block');
+--create types
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'relation_type') THEN
+        CREATE TYPE relation_type AS ENUM ('outgoing', 'ongoing', 'friend', 'block');
+    END IF;
+    --more types here...
+END$$;
 
 CREATE TABLE IF NOT EXISTS "user_relations" (
     "id"              uuid PRIMARY KEY DEFAULT gen_random_uuid (),

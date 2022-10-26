@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant}, collections::HashSet
 };
 
-use crate::{server, PLACEHOLDER_UUID};
+use crate::{server, PLACEHOLDER_UUID, controllers::ws::WsMsgType};
 use crate::messages::{
     Handler,
     MessageTypes,
@@ -63,7 +63,7 @@ pub struct WsChatSession {
 
     pub session: Session,
 
-    pub recv_type: String
+    pub recv_type: WsMsgType
 }
 
 impl WsChatSession {
@@ -81,10 +81,9 @@ impl WsChatSession {
 
     pub async fn send_event(&self, msg: MessageTypes) {
         // println!("{}", serde_json::to_string(&msg).unwrap_or("Something failed idk".to_string()));
-        if self.recv_type == "json".to_owned() {
-            self.session.clone().text(serde_json::to_string(&msg).unwrap()).await.unwrap()
-        } else {
-            self.session.clone().binary(serde_cbor::to_vec(&msg).unwrap()).await.unwrap()
+        match self.recv_type { 
+            WsMsgType::Json => self.session.clone().text(serde_json::to_string(&msg).unwrap()).await.unwrap(),
+            WsMsgType::Cbor => self.session.clone().binary(serde_cbor::to_vec(&msg).unwrap()).await.unwrap()
         }
     }
 
