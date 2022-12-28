@@ -19,6 +19,8 @@ use actix_http::header;
 use actix_cors::Cors;
 use clokwerk::{Scheduler, TimeUnits};
 
+use user_agent_parser::UserAgentParser;
+
 use chrono::offset::Utc;
 
 use sqlx::postgres::PgPool;
@@ -52,6 +54,8 @@ async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     let app_state = Arc::new(AtomicUsize::new(0));
+
+    let ua_parser = Arc::new(UserAgentParser::from_path("./regexes.yaml").unwrap());
 
     log::info!("{}", &env::var("DATABASE_URL").unwrap_or("postgres://postgres:1234@localhost:5432/flettex".to_string()));
 
@@ -116,6 +120,7 @@ DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
             .allowed_origin_fn(|origin, _req_head| {
                 origin.as_bytes().starts_with(b"https://pineapple-deploy.vercel.app") || origin.as_bytes().starts_with(b"http://localhost")
                     || origin.as_bytes().starts_with(b"http://127.0.0.1")
+                    || origin.as_bytes().starts_with(b"https://www.gearsgoround.com") /* This one is used */
                     || origin.as_bytes().starts_with(b"https://gearsgoround.com")
             })
             .supports_credentials()
@@ -148,6 +153,7 @@ DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
             .app_data(web::Data::from(app_state.clone()))
             .app_data(web::Data::new(pool.clone()))
             .app_data(web::Data::new(server.clone()))
+            .app_data(web::Data::new(ua_parser.clone()))
             .configure(controllers::config)
             .wrap(Logger::default())
     })

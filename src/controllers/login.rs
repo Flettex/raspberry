@@ -11,13 +11,16 @@ use argon2::{
     },
     Argon2
 };
+use std::sync::Arc;
 
 use sqlx::postgres::PgPool;
 use serde_json::json;
+use user_agent_parser::UserAgentParser;
 
 use crate::server;
 use crate::db;
 use utoipa;
+use db::signup::UserAgent;
 
 #[utoipa::path(
     post,
@@ -33,7 +36,8 @@ pub async fn post(
     pool: web::Data<PgPool>,
     session: Session,
     id: Option<Identity>,
-    req: HttpRequest
+    req: HttpRequest,
+    ua_parser: web::Data<Arc<UserAgentParser>>
 ) -> HttpResponse {
     if let Some(_) = id {
         return HttpResponse::Ok().finish();
@@ -47,10 +51,22 @@ pub async fn post(
     }
     session.remove("captcha");
     let argon2 = Argon2::default();
+    let user_agent = req.headers().get("user-agent").unwrap().to_str().ok().unwrap();
+    // println!("USER AGENT {}", user_agent.unwrap());
+    let browser = ua_parser.parse_product(user_agent);
+    let os = ua_parser.parse_os(user_agent);
+    let device = ua_parser.parse_device(user_agent);
+    println!("User Agents\nProduct {:#?}\nOs {:#?}\nDevice {:#?}", browser, os, device);
     match db::login::get_user_and_password(pl.email, pool.as_ref()).await {
         Ok((user_id, password)) => {
             if argon2.verify_password(pl.password.as_bytes(), &PasswordHash::new(&password).unwrap()).is_ok() {
-                match db::login::create_session(user_id, pool.as_ref()).await {
+                let uag = UserAgent {
+                    os: Some(format!("{} {} {}", os.name.unwrap(), os.major.unwrap(), os.minor.unwrap())),
+                    browser: Some(format!("{} {} {}", browser.name.unwrap(), browser.major.unwrap(), browser.minor.unwrap())),
+                    device: Some(format!("{} {} {}", device.name.unwrap(), device.model.unwrap(), device.brand.unwrap())),
+                    original: user_agent.to_string()
+                };
+                match db::login::create_session(user_id, pool.as_ref(), uag).await {
                     Ok(session_id) => {
                         Identity::login(&req.extensions(), json!({
                             "user_id": user_id,

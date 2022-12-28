@@ -51,6 +51,7 @@ pub async fn get(
     query: web::Query<WsQuery>
 ) -> Result<HttpResponse, Error> {
     if let Some(session_id) = id {
+        println!("Receiving ws request");
         let recv_type = match query.into_inner().recv_type {
             Some(t) => {
                 if t == "json".to_string() {
@@ -95,6 +96,7 @@ pub async fn get(
 
         Ok(response)
     } else {
+        println!("Unauthorized user");
         Ok(HttpResponse::Ok().finish())
     }
 }

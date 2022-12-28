@@ -5,14 +5,20 @@ use sqlx::{
     }
 };
 
-pub async fn create_session(user_id: i64, pool: &PgPool) -> sqlx::Result<Uuid> {
+use super::signup::UserAgent;
+
+pub async fn create_session(user_id: i64, pool: &PgPool, uag: UserAgent) -> sqlx::Result<Uuid> {
     match sqlx::query!(
         r#"
-INSERT INTO user_sessions ( userid )
-VALUES ( $1 )
+INSERT INTO user_sessions ( userid, os, browser, device, original )
+VALUES ( $1, $2, $3, $4, $5 )
 RETURNING session_id
         "#,
-        user_id
+        user_id,
+        uag.os,
+        uag.browser,
+        uag.device,
+        uag.original
     )
     .fetch_one(pool)
     .await {

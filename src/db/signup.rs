@@ -15,6 +15,13 @@ use argon2::{
     Argon2
 };
 
+pub struct UserAgent {
+    pub os: Option<String>,
+    pub device: Option<String>,
+    pub browser: Option<String>,
+    pub original: String
+}
+
 pub fn create_password(password: String) -> Result<String, Error> {
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
@@ -24,7 +31,7 @@ pub fn create_password(password: String) -> Result<String, Error> {
     }
 }
 
-pub async fn create_user(username: String, email: String, code: i64, password_hash: String, pool: &PgPool) -> sqlx::Result<(Uuid, i64)> {
+pub async fn create_user(username: String, email: String, code: i64, password_hash: String, uag: UserAgent, pool: &PgPool) -> sqlx::Result<(Uuid, i64)> {
     match sqlx::query!(
         r#"
 INSERT INTO users ( username, email, password, code )
@@ -44,11 +51,15 @@ RETURNING id
                 (
                     sqlx::query!(
                         r#"
-    INSERT INTO user_sessions ( userid )
-    VALUES ( $1 )
+    INSERT INTO user_sessions ( userid, os, browser, device, original )
+    VALUES ( $1, $2, $3, $4, $5 )
     RETURNING session_id
                         "#,
-                        rec.id
+                        rec.id,
+                        uag.os,
+                        uag.browser,
+                        uag.device,
+                        uag.original
                     )
                     .fetch_one(pool)
                     .await?

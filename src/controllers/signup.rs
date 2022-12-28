@@ -5,18 +5,21 @@ use actix_web::{
 };
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
-use rand::random;
+use rand::Rng;
+use std::sync::Arc;
 
 use actix_session::Session;
 
 use sqlx::postgres::PgPool;
-use crate::{server, EMAIL_PASSWORD};
+use crate::{server, EMAIL_PASSWORD, db::signup::UserAgent};
 use crate::db::signup::{
     create_user,
     create_password
 };
 use serde_json::json;
 use utoipa;
+
+use user_agent_parser::UserAgentParser;
 
 #[utoipa::path(
     post,
@@ -32,10 +35,15 @@ pub async fn post(
     pool: web::Data<PgPool>,
     id: Option<Identity>,
     req: HttpRequest,
-    session: Session
+    session: Session,
+    ua_parser: web::Data<Arc<UserAgentParser>>
 ) -> HttpResponse {
-    let useragent = req.headers().get("user-agent").unwrap().to_str().ok();
-    println!("USER AGENT {}", useragent.unwrap());
+    let user_agent = req.headers().get("user-agent").unwrap().to_str().ok().unwrap();
+    // println!("USER AGENT {}", user_agent.unwrap());
+    let browser = ua_parser.parse_product(user_agent);
+    let os = ua_parser.parse_os(user_agent);
+    let device = ua_parser.parse_device(user_agent);
+    println!("User Agents\nProduct {:#?}\nOs {:#?}\nDevice {:#?}", browser, os, device);
     if let Some(_) = id {
         return HttpResponse::Ok().finish();
     }
@@ -49,8 +57,14 @@ pub async fn post(
     match create_password(pl.password) {
         Ok(password_hash) => {
             // generate random
-            let code = random::<u8>();
-            match create_user(pl.username, pl.email.clone(), code.clone().into(), password_hash, pool.as_ref()).await {
+            let code = rand::thread_rng().gen_range(100000..999999);
+            let uag = UserAgent {
+                os: Some(format!("{} {} {}", os.name.unwrap(), os.major.unwrap(), os.minor.unwrap())),
+                browser: Some(format!("{} {} {}", browser.name.unwrap(), browser.major.unwrap(), browser.minor.unwrap())),
+                device: Some(format!("{} {} {}", device.name.unwrap(), device.model.unwrap(), device.brand.unwrap())),
+                original: user_agent.to_string()
+            };
+            match create_user(pl.username, pl.email.clone(), code.clone().into(), password_hash, uag, pool.as_ref()).await {
                 Ok((session_id, user_id)) => {
                     Identity::login(&req.extensions(), json!({
                         "user_id": user_id,

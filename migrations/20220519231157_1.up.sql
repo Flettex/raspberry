@@ -19,6 +19,10 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     "session_id"      uuid PRIMARY KEY DEFAULT gen_random_uuid (),
     "userid"          BIGINT NOT NULL,
     "last_login"      TIMESTAMP DEFAULT current_timestamp NOT NULL,
+    "device"          TEXT,
+    "os"              TEXT,
+    "browser"         TEXT,
+    "original"        TEXT NOT NULL,
     CONSTRAINT fk_user_sessions FOREIGN KEY(userid) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -101,13 +105,16 @@ CREATE TABLE IF NOT EXISTS "invite" (
 );
 
 --create types
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'relation_type') THEN
+-- DO $$
+-- BEGIN
+--     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'relation_type') THEN
+
+-- Note: CREATE TYPE IF NOT EXISTS syntax only works with cockroach labs for some reason
+        -- CREATE TYPE IF NOT EXISTS relation_type AS ENUM ('outgoing', 'ongoing', 'friend', 'block');
         CREATE TYPE relation_type AS ENUM ('outgoing', 'ongoing', 'friend', 'block');
-    END IF;
-    --more types here...
-END$$;
+--     END IF;
+--     --more types here...
+-- END$$;
 
 CREATE TABLE IF NOT EXISTS "user_relations" (
     "id"              uuid PRIMARY KEY DEFAULT gen_random_uuid (),
