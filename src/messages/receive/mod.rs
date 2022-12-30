@@ -122,8 +122,10 @@ impl Handler for WsMessageCreate {
         log::info!("{} {}", msg, ctx.user.id);
         if self.channel_id == PLACEHOLDER_UUID {
             ctx.srv.send_message(&self.channel_id, MessageTypes::MessageCreate(Message::user(msg.to_string(), &self.channel_id.clone(), ctx.user.to_owned().into(), self.nonce))).await;
-        } else if db::ws_session::create_message(msg.to_string(), ctx.user.id, Uuid::parse_str(&self.channel_id.clone()).unwrap(), &ctx.pool).await.is_ok() {
-            ctx.srv.send_message(&self.channel_id, MessageTypes::MessageCreate(Message::user(msg.to_string(), &self.channel_id.clone(), ctx.user.to_owned().into(), self.nonce))).await;
+        } else {
+            if let Ok(msg) = db::ws_session::create_message(msg.to_string(), ctx.user.id, Uuid::parse_str(&self.channel_id.clone()).unwrap(), &ctx.pool).await {
+                ctx.srv.send_message(&self.channel_id, MessageTypes::MessageCreate(Message::from_dbmsg(msg, ctx.user.to_owned().into(), self.nonce))).await;
+            }
         }
     }
 }

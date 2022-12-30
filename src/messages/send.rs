@@ -58,6 +58,18 @@ impl Message {
             nonce
         }
     }
+
+    pub fn from_dbmsg(msg: models::Message, author: UserFetchType, nonce: Uuid) -> Self {
+        Self {
+            id: msg.id,
+            content: msg.content,
+            channel_id: msg.channel_id,
+            author: author,
+            edited_at: msg.edited_at,
+            created_at: msg.edited_at,
+            nonce
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]

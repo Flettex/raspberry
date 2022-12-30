@@ -231,36 +231,36 @@ UPDATE user_sessions SET last_login = NOW() WHERE session_id = $1
 }
 
 pub async fn update_message(message_id: Uuid, content: String, pool: &PgPool) -> sqlx::Result<Message> {
-//     sqlx::query_as!(
-//         Message,
-//         r#"
-// UPDATE message
-// SET content = $1, edited_at = NOW()
-// WHERE id = $2
-// RETURNING *
-//         "#,
-//         content,
-//         message_id
-//     ).fetch_one(pool).await
-    let mut transaction = pool.begin().await.unwrap();
-    sqlx::query!(
+    sqlx::query_as!(
+        Message,
         r#"
-    UPDATE message
-    SET content = $1, edited_at = NOW()
-    WHERE id = $2
+UPDATE message
+SET content = $1, edited_at = NOW()
+WHERE id = $2
+RETURNING *
         "#,
         content,
         message_id
-    ).execute(&mut transaction).await.unwrap();
-    let res = sqlx::query_as!(
-        Message,
-        r#"
-    SELECT * FROM message WHERE id = $1
-        "#,
-        message_id
-    ).fetch_one(&mut transaction).await;
-    transaction.commit().await.unwrap();
-    res
+    ).fetch_one(pool).await
+    // let mut transaction = pool.begin().await.unwrap();
+    // sqlx::query!(
+    //     r#"
+    // UPDATE message
+    // SET content = $1, edited_at = NOW()
+    // WHERE id = $2
+    //     "#,
+    //     content,
+    //     message_id
+    // ).execute(&mut transaction).await.unwrap();
+    // let res = sqlx::query_as!(
+    //     Message,
+    //     r#"
+    // SELECT * FROM message WHERE id = $1
+    //     "#,
+    //     message_id
+    // ).fetch_one(&mut transaction).await;
+    // transaction.commit().await.unwrap();
+    // res
 }
 
 // pub async fn get_user_id_by_session_id(session_id: String, pool: &PgPool) -> sqlx::Result<i64> {
