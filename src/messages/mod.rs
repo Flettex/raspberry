@@ -8,6 +8,17 @@ use enum_dispatch::enum_dispatch;
 use crate::session::WsChatSession;
 
 #[derive(Serialize, Deserialize, Clone)]
+pub struct UnauthorizedError {
+    pub content: String
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(tag = "type", content = "data")]
+pub enum ErrorMessageTypes {
+    ErrorUnauthorized(UnauthorizedError)
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(tag = "type", content = "data")]
 pub enum MessageTypes {
     Messages(MessagesType),

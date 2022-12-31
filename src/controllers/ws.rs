@@ -19,6 +19,8 @@ use futures::future;
 
 use sqlx::PgPool;
 
+use serde_cbor;
+
 use crate::{
     server::{
         self,
@@ -28,7 +30,8 @@ use crate::{
     },
     session::WsChatSession,
     PLACEHOLDER_UUID,
-    db
+    db,
+    messages::{ErrorMessageTypes, UnauthorizedError}
 };
 
 #[derive(Deserialize)]
@@ -97,6 +100,29 @@ pub async fn get(
         Ok(response)
     } else {
         println!("Unauthorized user");
-        Ok(HttpResponse::Ok().finish())
+        // don't need to read stream bec they're unauthorized
+        let (response, mut session, _stream) = actix_ws::handle(&req, stream)?;
+        let recv_type = match query.into_inner().recv_type {
+            Some(t) => {
+                if t == "json".to_string() {
+                    WsMsgType::Json
+                } else if t == "cbor".to_string() {
+                    WsMsgType::Cbor
+                } else {
+                    WsMsgType::Cbor
+                }
+            }
+            None => WsMsgType::Cbor
+        };
+        match recv_type {
+            WsMsgType::Cbor => {
+                session.binary(serde_cbor::to_vec(&ErrorMessageTypes::ErrorUnauthorized(UnauthorizedError { content: "Unauthorized".to_string()})).unwrap()).await.unwrap();
+            }
+            WsMsgType::Json => {
+                session.text(serde_json::to_string(&ErrorMessageTypes::ErrorUnauthorized(UnauthorizedError { content: "Unauthorized".to_string()})).unwrap()).await.unwrap();
+            }
+        }
+        let _ = session.close(None).await;
+        Ok(response)
     }
 }

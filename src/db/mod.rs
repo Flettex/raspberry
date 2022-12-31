@@ -5,3 +5,5 @@ pub mod verify;
 pub mod ws_session;
 pub mod models;
 pub mod start;
+pub mod channels;
+pub mod guilds;

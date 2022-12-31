@@ -1,9 +1,7 @@
 use actix_identity::Identity;
 use actix_web::{
-    // http::{header::ContentType, StatusCode},
     web, HttpResponse
 };
-// use actix_session::Session;
 
 use sqlx::postgres::PgPool;
 use sqlx::types::Uuid;
@@ -13,7 +11,7 @@ use utoipa;
 
 #[utoipa::path(
     post,
-    path = "/channels/{channel_id}",
+    path = "/guilds/{guild_id}",
     responses(
         (status = 200, description = "Successful Response", body = String),
     )
@@ -27,5 +25,5 @@ pub async fn get(
         return HttpResponse::Ok().finish();
     }
     let pl = path.into_inner();
-    HttpResponse::Ok().json(db::channels::get_channel(pl.0, &pool).await.unwrap())
+    HttpResponse::Ok().json(db::guilds::get_guild(pl.0, &pool).await.unwrap())
 }

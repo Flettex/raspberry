@@ -23,6 +23,8 @@ pub mod admin;
 pub mod sqlx;
 pub mod verify;
 pub mod samesite;
+pub mod channels;
+pub mod guilds;
 // use self::admin::format_html;
 use crate::html;
 use crate::server::{
@@ -62,12 +64,6 @@ macro_rules! view {
     }
 }
 
-macro_rules! no_resource {
-    () => {
-        web::resource("")
-    }
-}
-
 pub fn config(cfg: &mut web::ServiceConfig) {
     #[derive(OpenApi)]
     #[openapi(
@@ -80,82 +76,97 @@ pub fn config(cfg: &mut web::ServiceConfig) {
     )]
     struct ApiDoc;
 
+    // dev only
+
+    if IS_DEV {
+        cfg.service(
+            web::resource("/admin")
+                .route(web::get().to(admin::get)))
+        .service(
+            web::resource("/sqlx")
+            .route(web::post().to(sqlx::post)));
+    }
+
+    // views
+
     cfg.service(
         services![
             view!("/", html::INDEX)
                 .route(web::post().to(index::post)),
-            web::resource("/health")
-                .route(web::get().to(|| {
-                    HttpResponse::Ok()
-                })),
             // view!("/chat", html::CHAT),
-            web::resource("/signup")
-                .route(web::get().to(|session: Session| async move {
-                    let captcha = CaptchaBuilder::new()
-                        .length(5)
-                        .width(130)
-                        .height(50)
-                        .dark_mode(false)
-                        .complexity(5) // min: 1, max: 10
-                        .build();
-                    session.insert("captcha", captcha.text).unwrap();
-                    HttpResponse::Ok()
-                        .content_type(ContentType::plaintext())
-                        .body(captcha.base_img)
-                }))
-                .route(web::post().to(signup::post)),
-            web::resource("/login")
-                .route(web::get().to(|session: Session| async move {
-                    let captcha = CaptchaBuilder::new()
-                        .length(5)
-                        .width(130)
-                        .height(50)
-                        .dark_mode(false)
-                        .complexity(5) // min: 1, max: 10
-                        .build();
-                    session.insert("captcha", captcha.text).unwrap();
-                    HttpResponse::Ok()
-                        .content_type(ContentType::plaintext())
-                        .body(captcha.base_img)
-                }))
-                .route(web::post().to(login::post)),
-            // view!("/logout", html::LOGOUT)
-            web::resource("/logout")
-                .route(web::delete().to(logout::delete)),
+            // view!("/logout", html::LOGOUT),
             // view!("/verify", html::VERIFY)
-            web::resource("verify")
-                .route(web::post().to(verify::post)),
-            web::resource("/count")
-                .route(web::get().to(count::get)),
-            web::resource("/samesite")
-                .route(web::get().to(samesite::get)),
-            web::resource("/ws")
-                .route(web::get().to(ws::get)),
-            // web::resource("/be")
-            //     .route(web::get().to(|| {
-            //         HttpResponse::Ok()
-            //     })),
-            if IS_DEV {
-                web::resource("/admin")
-                    .route(web::get().to(admin::get))
-            } else {
-                no_resource!()
-            },
-            if IS_DEV {
-                web::resource("/sqlx")
-                    .route(web::post().to(sqlx::post))
-            } else {
-                no_resource!()
-            },
-            // default page
-            web::scope("")
-                .service(SwaggerUi::new("/swagger-ui/{_:.*}").urls(vec![
-                    (
-                        Url::new("/", "/api-doc/openapi.json"),
-                        ApiDoc::openapi()
-                    )
-                ]))
-                .default_service(web::to(default::all)),
         ]
     );
+
+    // controllers
+
+    cfg.service(
+        web::resource("/health")
+            .route(web::get().to(|| {
+                HttpResponse::Ok()
+            })))
+    .service(
+        web::resource("/signup")
+            .route(web::get().to(|session: Session| async move {
+                let captcha = CaptchaBuilder::new()
+                    .length(5)
+                    .width(130)
+                    .height(50)
+                    .dark_mode(false)
+                    .complexity(5) // min: 1, max: 10
+                    .build();
+                session.insert("captcha", captcha.text).unwrap();
+                HttpResponse::Ok()
+                    .content_type(ContentType::plaintext())
+                    .body(captcha.base_img)
+            }))
+            .route(web::post().to(signup::post)))
+    .service(
+        web::resource("/login")
+            .route(web::get().to(|session: Session| async move {
+                let captcha = CaptchaBuilder::new()
+                    .length(5)
+                    .width(130)
+                    .height(50)
+                    .dark_mode(false)
+                    .complexity(5) // min: 1, max: 10
+                    .build();
+                session.insert("captcha", captcha.text).unwrap();
+                HttpResponse::Ok()
+                    .content_type(ContentType::plaintext())
+                    .body(captcha.base_img)
+            }))
+            .route(web::post().to(login::post)))
+    .service(
+        web::resource("/logout")
+            .route(web::delete().to(logout::delete)))
+    .service(
+        web::resource("verify")
+            .route(web::post().to(verify::post)))
+    .service(
+        web::resource("/count")
+            .route(web::get().to(count::get)))
+    .service(
+        web::resource("/samesite")
+            .route(web::get().to(samesite::get)))
+    .service(
+        web::resource("/ws")
+            .route(web::get().to(ws::get)))
+    .service(
+        web::resource("/channels/{channel_id}")
+            .route(web::get().to(channels::get)))
+    .service(
+        web::resource("/guilds/{guild_id}")
+            .route(web::get().to(guilds::get)))
+    .service(
+        // default page
+        web::scope("")
+            .service(SwaggerUi::new("/swagger-ui/{_:.*}").urls(vec![
+                (
+                    Url::new("/", "/api-doc/openapi.json"),
+                    ApiDoc::openapi()
+                )
+            ]))
+            .default_service(web::to(default::all)));
 }
