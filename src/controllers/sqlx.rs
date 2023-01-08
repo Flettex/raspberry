@@ -37,7 +37,7 @@ fn get_val(item: &[u8], info: &PgTypeInfo) -> String {
         return Uuid::from_slice(item).unwrap().to_string();
     } else if info.name() == "TIMESTAMP" {
         let timestamp = i64::from_be_bytes(item.try_into().unwrap()) + POSTGRES_EPOCH * 1000000;
-        let naive = NaiveDateTime::from_timestamp(timestamp / 1000000, 0);
+        let naive = NaiveDateTime::from_timestamp_opt(timestamp / 1000000, 0).unwrap();
         let datetime: DateTime<Utc> = DateTime::from_utc(naive, Utc);
         return datetime.format("%Y-%m-%d %H:%M:%S").to_string();
     } else if info.name() == "BOOL" {

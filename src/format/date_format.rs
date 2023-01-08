@@ -13,7 +13,7 @@ where
     D: Deserializer<'de>,
 {
     let time: i64 = Deserialize::deserialize(deserializer)?;
-    Ok(NaiveDateTime::from_timestamp(time, 0))
+    Ok(NaiveDateTime::from_timestamp_opt(time, 0).unwrap())
 }
 
 #[allow(dead_code)]

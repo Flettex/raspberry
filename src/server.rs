@@ -75,7 +75,7 @@ impl utoipa::ToSchema for ClientEvent {
                 "client_id",
                 utoipa::openapi::ObjectBuilder::new()
                     .schema_type(utoipa::openapi::SchemaType::Integer)
-                    .format(Some(utoipa::openapi::SchemaFormat::Int64)),
+                    .format(Some(utoipa::openapi::SchemaFormat::KnownFormat(utoipa::openapi::schema::KnownFormat::Int64))),
             )
             .required("client_id")
             .property(
@@ -167,7 +167,7 @@ impl Chat {
             rooms.push(key.to_owned())
         }
         drop(inner);
-        rooms.push(self.get_sessions_by_user_id(2).await.unwrap().iter().map(|ses| ("ses: ".to_string() + &ses.session_id).to_string()).join(", "));
+        // rooms.push(self.get_sessions_by_user_id(2).await.unwrap().iter().map(|ses| ("ses: ".to_string() + &ses.session_id).to_string()).join(", "));
         rooms
     }
 

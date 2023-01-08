@@ -42,15 +42,14 @@ impl fmt::Display for WsReceiveTypes {
 
 #[derive(Clone)]
 pub struct WsChatSession {
+    // name and id fields are replaced by user model from the database.
     pub user: models::User,
-    // pub id: Arc<Mutex<usize>>,
 
     pub rooms: Arc<Mutex<HashSet<String>>>,
 
-    // pub name: Arc<Mutex<Option<String>>>,
-
     pub alive: Arc<Mutex<Instant>>,
 
+    // stream does not satisfy traits, and is being passed in as a paramter instead.
     // pub stream: Arc<Mutex<MessageStream>>,
 
 // below should not be mutated at all

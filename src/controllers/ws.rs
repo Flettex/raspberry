@@ -122,7 +122,7 @@ pub async fn get(
                 session.text(serde_json::to_string(&ErrorMessageTypes::ErrorUnauthorized(UnauthorizedError { content: "Unauthorized".to_string()})).unwrap()).await.unwrap();
             }
         }
-        let _ = session.close(None).await;
+        let _ = session.close(Some(10008)).await;
         Ok(response)
     }
 }

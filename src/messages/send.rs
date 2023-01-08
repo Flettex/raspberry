@@ -37,7 +37,7 @@ impl Message {
                 username: "System".to_string(),
                 profile: None,
                 description: None,
-                created_at: NaiveDate::from_ymd(2016, 7, 8).and_hms(9, 10, 11),
+                created_at: NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().and_hms_opt(9, 10, 11).unwrap(),
                 is_staff: true,
                 is_superuser: true
             },
