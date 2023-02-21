@@ -56,7 +56,7 @@ async fn main() -> std::io::Result<()> {
     let app_state = Arc::new(AtomicUsize::new(0));
 
     let ua_parser = Arc::new(UserAgentParser::from_path("./regexes.yaml").unwrap());
-
+    
     log::info!("{}", &env::var("DATABASE_URL").unwrap_or("postgres://postgres:1234@localhost:5432/flettex".to_string()));
 
     let pool: PgPool = PgPool::connect(

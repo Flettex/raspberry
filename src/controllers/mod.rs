@@ -25,6 +25,7 @@ pub mod verify;
 pub mod samesite;
 pub mod channels;
 pub mod guilds;
+pub mod extractor;
 // use self::admin::format_html;
 use crate::html;
 use crate::server::{

@@ -50,15 +50,26 @@ CREATE TABLE IF NOT EXISTS "guild" (
     "creator_id"  BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- channel_type (s):
+-- 0: text channel
+-- 1: dm channel (text)
+-- 2: category channel
+
 CREATE TABLE IF NOT EXISTS "channel" (
-    "id"          uuid PRIMARY KEY DEFAULT gen_random_uuid (),
-    "name"        varchar(50) NOT NULL,
-    "description" text NULL,
-    "position"    bigint NOT NULL CHECK ("position" >= 0),
-    "created_at"  TIMESTAMP DEFAULT current_timestamp NOT NULL,
-    "guild_id"    uuid NOT NULL REFERENCES guild(id) ON DELETE CASCADE,
+    "id"            uuid PRIMARY KEY DEFAULT gen_random_uuid (),
+    "name"          varchar(50) NOT NULL,
+    "description"   text NULL,
+    "position"      bigint NOT NULL CHECK ("position" >= 0),
+    "created_at"    TIMESTAMP DEFAULT current_timestamp NOT NULL,
+    "channel_type"  SMALLINT NOT NULL,
+    "guild_id"      uuid REFERENCES guild(id) ON DELETE CASCADE,
+-- Either guild_id presents or both user fields presents
+    "user1"         BIGINT REFERENCES users(id),
+    "user2"         BIGINT REFERENCES users(id),
     UNIQUE (position, guild_id),
-    UNIQUE (name, guild_id)
+    UNIQUE (name, guild_id),
+    CONSTRAINT DM_CHANNEL_CHECK
+    CHECK ((guild_id IS NOT NULL AND user1 IS NULL AND user2 IS NULL) OR (guild_id IS NULL AND user1 IS NOT NULL AND user2 IS NOT NULL) )
 );
 
 

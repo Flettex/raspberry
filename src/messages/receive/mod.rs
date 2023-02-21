@@ -47,7 +47,8 @@ pub struct WsChannelCreate {
     pub name: String,
     pub desc: Option<String>,
     pub position: i64,
-    pub guild_id: Uuid
+    pub guild_id: Uuid,
+    pub channel_type: i16
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

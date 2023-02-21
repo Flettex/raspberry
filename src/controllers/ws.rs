@@ -12,6 +12,7 @@ use actix_web::{
 };
 use actix_identity::Identity;
 
+use actix_ws::{CloseCode, CloseReason};
 use serde::{Deserialize};
 
 use tokio::sync::Mutex;
@@ -19,7 +20,7 @@ use futures::future;
 
 use sqlx::PgPool;
 
-use serde_cbor;
+// use serde_cbor;
 
 use crate::{
     server::{
@@ -31,7 +32,7 @@ use crate::{
     session::WsChatSession,
     PLACEHOLDER_UUID,
     db,
-    messages::{ErrorMessageTypes, UnauthorizedError}
+    // messages::{ErrorMessageTypes, UnauthorizedError}
 };
 
 #[derive(Deserialize)]
@@ -101,29 +102,30 @@ pub async fn get(
     } else {
         println!("Unauthorized user");
         // don't need to read stream bec they're unauthorized
-        let (response, mut session, _stream) = actix_ws::handle(&req, stream)?;
-        let recv_type = match query.into_inner().recv_type {
-            Some(t) => {
-                if t == "json".to_string() {
-                    WsMsgType::Json
-                } else if t == "cbor".to_string() {
-                    WsMsgType::Cbor
-                } else {
-                    WsMsgType::Cbor
-                }
-            }
-            None => WsMsgType::Cbor
-        };
-        match recv_type {
-            WsMsgType::Cbor => {
-                session.binary(serde_cbor::to_vec(&ErrorMessageTypes::ErrorUnauthorized(UnauthorizedError { content: "Unauthorized".to_string()})).unwrap()).await.unwrap();
-            }
-            WsMsgType::Json => {
-                session.text(serde_json::to_string(&ErrorMessageTypes::ErrorUnauthorized(UnauthorizedError { content: "Unauthorized".to_string()})).unwrap()).await.unwrap();
-            }
-        }
-        // 4000 is unauthorized error
-        let _ = session.close(Some(4000)).await;
+        let (response, session, _stream) = actix_ws::handle(&req, stream)?;
+        let _ = session.close(Some(CloseReason { code: CloseCode::Other(4000), description: Some("Unauthorized".to_string()) })).await;
+        // let recv_type = match query.into_inner().recv_type {
+        //     Some(t) => {
+        //         if t == "json".to_string() {
+        //             WsMsgType::Json
+        //         } else if t == "cbor".to_string() {
+        //             WsMsgType::Cbor
+        //         } else {
+        //             WsMsgType::Cbor
+        //         }
+        //     }
+        //     None => WsMsgType::Cbor
+        // };
+        // match recv_type {
+        //     WsMsgType::Cbor => {
+        //         session.binary(serde_cbor::to_vec(&ErrorMessageTypes::ErrorUnauthorized(UnauthorizedError { content: "Unauthorized".to_string()})).unwrap()).await.unwrap();
+        //     }
+        //     WsMsgType::Json => {
+        //         session.text(serde_json::to_string(&ErrorMessageTypes::ErrorUnauthorized(UnauthorizedError { content: "Unauthorized".to_string()})).unwrap()).await.unwrap();
+        //     }
+        // }
+        // // 4000 is unauthorized error
+        // let _ = session.close(Some(CloseReason { code: CloseCode::Other(4000), description: Some("Unauthorized".to_string()) })).await;
         Ok(response)
     }
 }

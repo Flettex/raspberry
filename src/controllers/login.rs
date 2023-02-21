@@ -22,6 +22,8 @@ use crate::db;
 use utoipa;
 use db::signup::UserAgent;
 
+use super::extractor::ValidatedForm;
+
 #[utoipa::path(
     post,
     path = "/login",
@@ -32,7 +34,7 @@ use db::signup::UserAgent;
     request_body(content = LoginEvent, description = "user email, user password", content_type = "application/json")
 )]
 pub async fn post(
-    body: web::Json<server::LoginEvent>,
+    body: ValidatedForm<server::LoginEvent>,
     pool: web::Data<PgPool>,
     session: Session,
     id: Option<Identity>,
@@ -42,7 +44,7 @@ pub async fn post(
     if let Some(_) = id {
         return HttpResponse::Ok().finish();
     }
-    let pl = body.into_inner();
+    let pl = body.decode();
     log::info!("GIVEN: {}\n REAL CODE: {}", pl.code, session.get::<String>("captcha").unwrap().unwrap());
     if pl.code != session.get::<String>("captcha").unwrap().unwrap() {
         return HttpResponse::build(StatusCode::BAD_REQUEST)

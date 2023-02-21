@@ -69,10 +69,13 @@ pub struct Channel {
     pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
+    pub channel_type: i16,
     pub position: i64,
     #[serde(with = "format::date_format2")]
     pub created_at: NaiveDateTime,
-    pub guild_id: Uuid
+    pub guild_id: Option<Uuid>,
+    pub user1: Option<i64>,
+    pub user2: Option<i64>
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

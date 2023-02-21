@@ -182,13 +182,14 @@ pub async fn create_channel(channel: WsChannelCreate, pool: &PgPool) -> sqlx::Re
     match sqlx::query_as!(
         Channel,
         r#"
-INSERT INTO channel (name, description, position, guild_id) 
-VALUES ($1, $2, $3, $4) RETURNING *
+INSERT INTO channel (name, description, position, guild_id, channel_type) 
+VALUES ($1, $2, $3, $4, $5) RETURNING *
         "#,
         channel.name,
         channel.desc,
         channel.position,
-        channel.guild_id
+        Some(channel.guild_id),
+        channel.channel_type
     )
     .fetch_one(pool)
     .await {
@@ -207,7 +208,7 @@ WITH gids AS (
 ) SELECT * FROM channel WHERE guild_id = (SELECT guild_id from gids)
         "#,
         user_id,
-        guild_id
+       Some(guild_id)
     ).fetch_all(pool).await
 }
 

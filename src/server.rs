@@ -7,7 +7,6 @@ use std::{
     clone::Clone,
 };
 use utoipa::{self, ToSchema};
-use itertools::Itertools;
 
 // use actix_ws::{Session};
 use futures::stream::{FuturesUnordered, StreamExt};
@@ -132,6 +131,7 @@ impl Chat {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn get_sessions_by_user_id(&self, user_id: usize) -> Option<Vec<WsChatSession>> {
         let inner = self.inner.lock().await;
         if let Some(_) = inner.sessions.get(&user_id) {
