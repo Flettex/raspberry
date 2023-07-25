@@ -1,10 +1,4 @@
-use sqlx::{
-    PgPool,
-    types::{
-        Uuid
-    },
-    postgres::PgQueryResult
-};
+use sqlx::{postgres::PgQueryResult, types::Uuid, PgPool};
 
 pub async fn delete_session(session_id: Uuid, pool: &PgPool) -> sqlx::Result<PgQueryResult> {
     sqlx::query!(
@@ -13,6 +7,6 @@ DELETE FROM user_sessions WHERE session_id = $1
         "#,
         session_id
     )
-        .execute(pool)
-        .await
+    .execute(pool)
+    .await
 }

@@ -1,6 +1,4 @@
-use sqlx::{
-    PgPool
-};
+use sqlx::PgPool;
 
 // use super::models::{
 //     User,
@@ -17,8 +15,12 @@ FROM channel;
         "#
     )
     .fetch_all(pool)
-    .await {
-        Ok(recs) => Ok(recs.iter().map(|s| s.id.to_string()).collect::<Vec<String>>()),
-        Err(err) => Err(err)
+    .await
+    {
+        Ok(recs) => Ok(recs
+            .iter()
+            .map(|s| s.id.to_string())
+            .collect::<Vec<String>>()),
+        Err(err) => Err(err),
     }
 }

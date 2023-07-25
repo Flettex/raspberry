@@ -1,26 +1,18 @@
 use std::{
+    collections::HashSet,
     sync::Arc,
-    time::{Duration, Instant}, collections::HashSet
+    time::{Duration, Instant},
 };
 
-use crate::{server, PLACEHOLDER_UUID, controllers::ws::WsMsgType};
-use crate::messages::{
-    Handler,
-    MessageTypes,
-    WsReceiveTypes,
-    ReadyEventType,
-    Message as Msg
-};
-use crate::db::{
-    self,
-    models
-};
-use actix_ws::{Session, MessageStream, Message, CloseReason};
-use tokio::sync::Mutex;
+use crate::db::{self, models};
+use crate::messages::{Handler, Message as Msg, MessageTypes, ReadyEventType, WsReceiveTypes};
+use crate::{controllers::ws::WsMsgType, server, PLACEHOLDER_UUID};
+use actix_ws::{CloseReason, Message, MessageStream, Session};
 use serde_json;
+use tokio::sync::Mutex;
 
-use std::fmt;
 use futures::StreamExt;
+use std::fmt;
 
 use sqlx::postgres::PgPool;
 use sqlx::types::Uuid;
@@ -29,13 +21,28 @@ impl fmt::Display for WsReceiveTypes {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             WsReceiveTypes::MessageCreate(msg) => write!(f, "{}", msg.content),
-            WsReceiveTypes::MessageUpdate(msg) => write!(f, "Updating {} to {}", msg.id, msg.content),
-            WsReceiveTypes::GuildCreate(guild) => write!(f, "Creating guild named {}, described: {:?}\n Icon: {:?}", guild.name, guild.desc, guild.icon),
-            WsReceiveTypes::ChannelCreate(chan) => write!(f, "Creating channel named {}, described: {:?}, Position: {}, Guild: {} ", chan.name, chan.desc, chan.position, chan.guild_id),
+            WsReceiveTypes::MessageUpdate(msg) => {
+                write!(f, "Updating {} to {}", msg.id, msg.content)
+            }
+            WsReceiveTypes::GuildCreate(guild) => write!(
+                f,
+                "Creating guild named {}, described: {:?}\n Icon: {:?}",
+                guild.name, guild.desc, guild.icon
+            ),
+            WsReceiveTypes::ChannelCreate(chan) => write!(
+                f,
+                "Creating channel named {}, described: {:?}, Position: {}, Guild: {} ",
+                chan.name, chan.desc, chan.position, chan.guild_id
+            ),
             WsReceiveTypes::MemberCreate(mem) => write!(f, "new member to guild {}", mem.guild_id),
-            WsReceiveTypes::MessageFetch(m) => write!(f, "Fetching message from channel_id {}", m.channel_id),
-            WsReceiveTypes::MemberFetch(m) => write!(f, "Fetching member from guild_id {}", m.guild_id),
+            WsReceiveTypes::MessageFetch(m) => {
+                write!(f, "Fetching message from channel_id {}", m.channel_id)
+            }
+            WsReceiveTypes::MemberFetch(m) => {
+                write!(f, "Fetching member from guild_id {}", m.guild_id)
+            }
             WsReceiveTypes::UserFetch(u) => write!(f, "Fetching user {}", u.id),
+            _ => write!(f, "Unimplemented"),
         }
     }
 }
@@ -52,8 +59,7 @@ pub struct WsChatSession {
     // stream does not satisfy traits, and is being passed in as a paramter instead.
     // pub stream: Arc<Mutex<MessageStream>>,
 
-// below should not be mutated at all
-
+    // below should not be mutated at all
     pub srv: server::Chat,
 
     pub pool: PgPool,
@@ -62,7 +68,7 @@ pub struct WsChatSession {
 
     pub session: Session,
 
-    pub recv_type: WsMsgType
+    pub recv_type: WsMsgType,
 }
 
 impl WsChatSession {
@@ -71,18 +77,30 @@ impl WsChatSession {
     }
 
     // updated to MessageCreate only because no other events are sent anyways
-    pub async fn send_to_all_rooms(&self, mut msg: Msg) {
-        for room in &*self.rooms.lock().await {
-            msg.channel_id = Uuid::parse_str(room).unwrap();
-            self.srv.send_message(&room, MessageTypes::MessageCreate(msg.to_owned())).await;
-        }
-    }
+    // pub async fn send_to_all_rooms(&self, mut msg: Msg) {
+    //     for room in &*self.rooms.lock().await {
+    //         msg.channel_id = Uuid::parse_str(PLACEHOLDER_UUID).unwrap();
+    //         self.srv
+    //             .send_guild_message(&room, MessageTypes::MessageCreate(msg.to_owned()))
+    //             .await;
+    //     }
+    // }
 
     pub async fn send_event(&self, msg: MessageTypes) {
         // println!("{}", serde_json::to_string(&msg).unwrap_or("Something failed idk".to_string()));
-        match self.recv_type { 
-            WsMsgType::Json => self.session.clone().text(serde_json::to_string(&msg).unwrap()).await.unwrap(),
-            WsMsgType::Cbor => self.session.clone().binary(serde_cbor::to_vec(&msg).unwrap()).await.unwrap()
+        match self.recv_type {
+            WsMsgType::Json => self
+                .session
+                .clone()
+                .text(serde_json::to_string(&msg).unwrap())
+                .await
+                .unwrap(),
+            WsMsgType::Cbor => self
+                .session
+                .clone()
+                .binary(serde_cbor::to_vec(&msg).unwrap())
+                .await
+                .unwrap(),
         }
     }
 
@@ -108,17 +126,28 @@ impl WsChatSession {
         let session = self.session.clone();
         // idk if closing session here is a good idea but eh
         let _ = session.close(reason).await;
-        db::ws_session::toggle_user_status(self.user.id, false, &self.pool).await.unwrap();
-        self.send_to_all_rooms(Msg::system(format!("User {} disconneced", self.user.id), PLACEHOLDER_UUID, self.user.id)).await;
+        db::ws_session::toggle_user_status(self.user.id, false, &self.pool)
+            .await
+            .unwrap();
+        // self.send_to_all_rooms(Msg::system(
+        //     format!("User {} disconneced", self.user.id),
+        //     PLACEHOLDER_UUID,
+        //     self.user.id,
+        // ))
+        // .await;
         for room in &*self.rooms.lock().await {
-            self.srv.leave_room(room.to_string(), self.user.id as usize).await;
+            self.srv
+                .leave_guild(room.to_string(), self.user.id as usize)
+                .await;
         }
     }
 
     pub async fn start(&self, mut stream: MessageStream) {
         // connect
-        // join user to room Main
-        self.srv.insert_id(PLACEHOLDER_UUID.to_string(), self.user.id as usize).await;
+        // join user to guild Main
+        self.srv
+            .insert_id(PLACEHOLDER_UUID.to_string(), self.user.id as usize)
+            .await;
         // add visitor count, very useless so removing soon!
         let count = self.srv.new_visitor().await;
         // let mut stream = self.stream.lock().await;
@@ -132,25 +161,43 @@ impl WsChatSession {
         //         return
         //     }
         // };
-        db::ws_session::toggle_user_status(self.user.id, true, &self.pool).await.unwrap();
-        db::ws_session::update_user_last_login(Uuid::parse_str(&self.session_id.clone()).unwrap(), &self.pool).await.unwrap();
+        db::ws_session::toggle_user_status(self.user.id, true, &self.pool)
+            .await
+            .unwrap();
+        db::ws_session::update_user_last_login(
+            Uuid::parse_str(&self.session_id.clone()).unwrap(),
+            &self.pool,
+        )
+        .await
+        .unwrap();
         println!("CODE: {:?}", self.user.code);
         if self.user.code.is_some() {
             self.send_event(MessageTypes::MessageCreate(Msg::system("WARNING: Your account is not verified. Please check your email and verify at /verify".to_string(), PLACEHOLDER_UUID, 0))).await;
         }
-        let guilds: Vec<models::Guild> = match db::ws_session::get_guilds_by_user_id(self.user.id, &self.pool).await {
-            Ok(glds) => glds,
-            Err(err) => {
-                println!("{:?}", err);
-                vec![]
-            }
-        };
+        let guilds: Vec<models::Guild> =
+            match db::ws_session::get_guilds_by_user_id(self.user.id, &self.pool).await {
+                Ok(glds) => glds,
+                Err(err) => {
+                    println!("{:?}", err);
+                    vec![]
+                }
+            };
 
         let mut guildchannels: Vec<models::GuildChannels> = vec![];
 
-        // do smth about each guild the user is in
+        // do smth about each guild the user is in, should occupy rooms for the entire time because
+        // we should not be reading the rooms while it is being initialized
+        let mut rooms = self.rooms.lock().await;
+
         for guild in guilds.clone() {
-            let channels = db::ws_session::get_channels_by_guild_id(guild.id, &self.pool).await.unwrap();
+            // about the permissions part...
+            self.srv
+                .join_guild(guild.id.to_string(), self.user.id as usize)
+                .await;
+            rooms.insert(guild.id.to_string());
+            let channels = db::ws_session::get_channels_by_guild_id(guild.id, &self.pool)
+                .await
+                .unwrap();
             guildchannels.push(models::GuildChannels {
                 id: guild.id,
                 name: guild.name.to_owned(),
@@ -158,19 +205,47 @@ impl WsChatSession {
                 icon: guild.icon,
                 creator_id: guild.creator_id,
                 created_at: guild.created_at,
-                channels: channels.to_owned()
+                channels: channels.to_owned(),
             });
-            for channel in channels.to_owned() {
-                self.rooms.lock().await.insert(channel.id.to_string());
-                self.srv.join_room(channel.id.to_string(), self.user.id as usize).await;
-            }
+            // no longer joining any of the channel
+            // for channel in channels.to_owned() {
+                // rooms.insert(channel.id.to_string());
+                // self.srv
+                //     .join_room(channel.id.to_string(), self.user.id as usize)
+                //     .await;
+            // }
         }
 
-        // ready event
-        self.send_event(MessageTypes::ReadyEvent(ReadyEventType{user: self.user.clone().into(), guilds: guildchannels})).await;
-        self.send_event(MessageTypes::MessageCreate(Msg::system(format!("Ready! Total visitors {}. User: {}", count, serde_json::to_string(&models::UserClient::from(self.user.clone())).unwrap()), PLACEHOLDER_UUID, 0))).await;
+        // Drop mutex guard after
+        drop(rooms);
 
-        self.srv.send_message(PLACEHOLDER_UUID, MessageTypes::MessageCreate(Msg::system("Someone connected".to_string(), PLACEHOLDER_UUID, 0))).await;
+        // ready event
+        self.send_event(MessageTypes::ReadyEvent(ReadyEventType {
+            user: self.user.clone().into(),
+            guilds: guildchannels,
+        }))
+        .await;
+        self.send_event(MessageTypes::MessageCreate(Msg::system(
+            format!(
+                "Ready! Total visitors {}. User: {}",
+                count,
+                serde_json::to_string(&models::UserClient::from(self.user.clone())).unwrap()
+            ),
+            PLACEHOLDER_UUID,
+            0,
+        )))
+        .await;
+
+        self.srv
+            .send_guild_message(
+                PLACEHOLDER_UUID,
+                MessageTypes::MessageCreate(Msg::system(
+                    "Someone connected".to_string(),
+                    PLACEHOLDER_UUID,
+                    0,
+                )),
+            )
+            .await;
         while let Some(Ok(msg)) = stream.next().await {
             log::debug!("WEBSOCKET MESSAGE: {:?}", msg);
             match msg {

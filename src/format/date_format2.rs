@@ -1,8 +1,5 @@
-use sqlx::types::chrono::{
-    NaiveDateTime,
-    DateTime
-};
-use serde::{self, Deserialize, Deserializer, Serializer, de::Error};
+use serde::{self, de::Error, Deserialize, Deserializer, Serializer};
+use sqlx::types::chrono::{DateTime, NaiveDateTime};
 // const FORMAT: &str = "%+";
 const FORMAT: &str = "%Y-%m-%d %H:%M:%S";
 
@@ -11,13 +8,12 @@ where
     D: Deserializer<'de>,
 {
     let time: String = Deserialize::deserialize(deserializer)?;
-    Ok(DateTime::parse_from_rfc3339(&time).map_err(D::Error::custom)?.naive_utc())
+    Ok(DateTime::parse_from_rfc3339(&time)
+        .map_err(D::Error::custom)?
+        .naive_utc())
 }
 
-pub fn serialize<S>(
-    date: &NaiveDateTime,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
+pub fn serialize<S>(date: &NaiveDateTime, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {

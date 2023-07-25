@@ -1,10 +1,15 @@
 // I stole this code from someone else
 
-use std::pin::Pin;
 use std::future::Future;
+use std::pin::Pin;
 
 use actix_http::Payload;
-use actix_web::{FromRequest, HttpRequest, http::header, web::{Json, Form}, error::ErrorBadRequest};
+use actix_web::{
+    error::ErrorBadRequest,
+    http::header,
+    web::{Form, Json},
+    FromRequest, HttpRequest,
+};
 use serde::de::DeserializeOwned;
 
 pub enum ValidatedForm<T, K = T> {
@@ -31,7 +36,7 @@ where
 
     fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
         let req = req.clone();
-        let mut pl= payload.take();
+        let mut pl = payload.take();
 
         Box::pin(async move {
             let content_type = req.headers().get(header::CONTENT_TYPE);

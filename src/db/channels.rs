@@ -1,9 +1,4 @@
-use sqlx::{
-    PgPool,
-    types::{
-        Uuid
-    }
-};
+use sqlx::{types::Uuid, PgPool};
 
 use super::models::Channel;
 

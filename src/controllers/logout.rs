@@ -1,18 +1,14 @@
-use actix_web::{
-    web,
-    HttpResponse,
-    http::{StatusCode, header::ContentType}
-};
 use actix_identity::Identity;
+use actix_web::{
+    http::{header::ContentType, StatusCode},
+    web, HttpResponse,
+};
 use sqlx::PgPool;
 
 use crate::db;
 use crate::server::AuthCookie;
 
-pub async fn delete(
-    id: Option<Identity>,
-    pool: web::Data<PgPool>,
-) -> HttpResponse {
+pub async fn delete(id: Option<Identity>, pool: web::Data<PgPool>) -> HttpResponse {
     if let Some(session_id) = id {
         let session_cookie: AuthCookie = serde_json::from_str(&session_id.id().unwrap()).unwrap();
         match db::logout::delete_session(
@@ -28,8 +24,8 @@ pub async fn delete(
             Err(_) => {
                 session_id.logout();
                 HttpResponse::build(StatusCode::BAD_REQUEST)
-                .content_type(ContentType::plaintext())
-                .body("Bad request")
+                    .content_type(ContentType::plaintext())
+                    .body("Bad request")
             }
         }
     } else {

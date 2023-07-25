@@ -1,21 +1,22 @@
-use serde::{self, Serialize, Deserialize};
+use serde::{self, Deserialize, Serialize};
 use std::clone::Clone;
-mod send;
 mod receive;
-pub use send::*;
-pub use receive::*;
-use enum_dispatch::enum_dispatch;
+mod send;
 use crate::session::WsChatSession;
+use enum_dispatch::enum_dispatch;
+pub use receive::*;
+pub use send::*;
+// use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct UnauthorizedError {
-    pub content: String
+    pub content: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(tag = "type", content = "data")]
 pub enum ErrorMessageTypes {
-    ErrorUnauthorized(UnauthorizedError)
+    ErrorUnauthorized(UnauthorizedError),
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -25,12 +26,16 @@ pub enum MessageTypes {
     Members(MembersType),
     MessageCreate(Message),
     MessageUpdate(Message),
+    MessageDelete(MessageDeleteType),
     ReadyEvent(ReadyEventType),
     GuildCreate(GuildCreateType),
     ChannelCreate(ChannelCreateType),
+    ChannelUpdate(ChannelUpdateType),
+    ChannelDelete(ChannelDeleteType),
     MemberCreate(MemberCreateType),
+    MemberUpdate(MemberUpdateType),
     MemberRemove(MemberRemoveType),
-    UserFetch(UserFetchType)
+    UserFetch(UserFetchType),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -47,10 +52,14 @@ pub enum WsReceiveTypes {
     MessageUpdate(WsMessageUpdate),
     // {"type":"MessageCreate", "data":{"content":"", room:""}}
     MessageCreate(WsMessageCreate),
+    // {"type":"Messagedelete", "id": "bruh-bruh-bruh-bruh"}
+    MessageDelete(WsMessageDelete),
     // {"type":"GuildCreate", "data":{"name": "breme's server"}}
     GuildCreate(WsGuildCreate),
     // {"type":"ChannelCreate", "data":{"name": "dumbdumbs", "position": 0, "guild_id": "bruh-bruh-bruh-bruh"}}
     ChannelCreate(WsChannelCreate),
     // {"type": "MemberCreate", "data":{"guild_id": "bruh-bruh-bruh-bruh"}}
     MemberCreate(WsMemberCreate),
+    //
+    MemberUpdate(WsMemberUpdate),
 }

@@ -1,9 +1,4 @@
-use sqlx::{
-    PgPool,
-    types::{
-        Uuid
-    }
-};
+use sqlx::{types::Uuid, PgPool};
 
 use super::signup::UserAgent;
 
@@ -21,9 +16,10 @@ RETURNING session_id
         uag.original
     )
     .fetch_one(pool)
-    .await {
+    .await
+    {
         Ok(rec) => Ok(rec.session_id),
-        Err(err) => Err(err)
+        Err(err) => Err(err),
     }
 }
 
@@ -35,8 +31,9 @@ SELECT id, password FROM users WHERE email = $1
         email
     )
     .fetch_one(pool)
-    .await {
+    .await
+    {
         Ok(rec) => Ok((rec.id, rec.password)),
-        Err(err) => Err(err)
+        Err(err) => Err(err),
     }
 }

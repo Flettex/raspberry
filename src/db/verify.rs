@@ -1,4 +1,4 @@
-use sqlx::{PgPool, postgres::PgQueryResult};
+use sqlx::{postgres::PgQueryResult, PgPool};
 
 pub async fn code(user_id: i64, pool: &PgPool) -> sqlx::Result<Option<i64>> {
     match sqlx::query!(
@@ -11,7 +11,7 @@ SELECT code FROM users WHERE id = $1
     .await
     {
         Ok(rec) => Ok(rec.code),
-        Err(err) => Err(err)
+        Err(err) => Err(err),
     }
 }
 

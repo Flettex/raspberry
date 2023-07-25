@@ -1,49 +1,40 @@
-use std::{
-    sync::Arc,
-    time::Instant,
-    collections::HashSet
-};
+use std::{collections::HashSet, sync::Arc, time::Instant};
 
-use actix_web::{
-    web,
-    HttpRequest,
-    HttpResponse,
-    Error
-};
 use actix_identity::Identity;
+use actix_web::{web, Error, HttpRequest, HttpResponse};
 
 use actix_ws::{CloseCode, CloseReason};
-use serde::{Deserialize};
+use serde::Deserialize;
 
-use tokio::sync::Mutex;
 use futures::future;
+use tokio::sync::Mutex;
 
 use sqlx::PgPool;
 
 // use serde_cbor;
 
 use crate::{
+    db,
+    // messages::{ErrorMessageTypes, UnauthorizedError}
     server::{
         self,
         // MessageTypes,
         // MessageCreateType,
-        AuthCookie
+        AuthCookie,
     },
     session::WsChatSession,
     PLACEHOLDER_UUID,
-    db,
-    // messages::{ErrorMessageTypes, UnauthorizedError}
 };
 
 #[derive(Deserialize)]
 pub struct WsQuery {
-    pub recv_type: Option<String>
+    pub recv_type: Option<String>,
 }
 
 #[derive(Clone)]
 pub enum WsMsgType {
     Json,
-    Cbor
+    Cbor,
 }
 
 pub async fn get(
@@ -52,7 +43,7 @@ pub async fn get(
     srv: web::Data<server::Chat>,
     pool: web::Data<PgPool>,
     id: Option<Identity>,
-    query: web::Query<WsQuery>
+    query: web::Query<WsQuery>,
 ) -> Result<HttpResponse, Error> {
     if let Some(session_id) = id {
         println!("Receiving ws request");
@@ -66,14 +57,19 @@ pub async fn get(
                     WsMsgType::Cbor
                 }
             }
-            None => WsMsgType::Cbor
+            None => WsMsgType::Cbor,
         };
         let (response, session, stream) = actix_ws::handle(&req, stream)?;
         let session_cookie: AuthCookie = serde_json::from_str(&session_id.id().unwrap()).unwrap();
         log::info!("Inserted session");
         let alive = Arc::new(Mutex::new(Instant::now()));
         println!("{}", session_cookie.session_id.clone());
-        match db::ws_session::get_user_by_session_id(session_cookie.session_id.clone(), pool.as_ref()).await {
+        match db::ws_session::get_user_by_session_id(
+            session_cookie.session_id.clone(),
+            pool.as_ref(),
+        )
+        .await
+        {
             Ok(user) => {
                 actix_web::rt::spawn(async move {
                     let chat_session = WsChatSession {
@@ -84,14 +80,14 @@ pub async fn get(
                         alive,
                         session,
                         session_id: session_cookie.session_id,
-                        recv_type
-                        // stream: Arc::new(Mutex::new(stream))
+                        recv_type, // stream: Arc::new(Mutex::new(stream))
                     };
-                    srv.insert_session(user.id as usize, chat_session.clone()).await;
+                    srv.insert_session(user.id as usize, chat_session.clone())
+                        .await;
                     future::join(chat_session.hb(), chat_session.start(stream)).await;
                 });
                 log::info!("Spawned");
-            },
+            }
             Err(_err) => {
                 println!("{:?}", _err);
                 let _ = session.close(None).await;
@@ -103,7 +99,12 @@ pub async fn get(
         println!("Unauthorized user");
         // don't need to read stream bec they're unauthorized
         let (response, session, _stream) = actix_ws::handle(&req, stream)?;
-        let _ = session.close(Some(CloseReason { code: CloseCode::Other(4000), description: Some("Unauthorized".to_string()) })).await;
+        let _ = session
+            .close(Some(CloseReason {
+                code: CloseCode::Other(4000),
+                description: Some("Unauthorized".to_string()),
+            }))
+            .await;
         // let recv_type = match query.into_inner().recv_type {
         //     Some(t) => {
         //         if t == "json".to_string() {

@@ -1,11 +1,7 @@
-use std::fs::{
-    File,
-    read_to_string,
-    read_dir,
-};
+use std::fs::{read_dir, read_to_string, File};
 use std::path::Path;
 
-use std::io::{Write, Error};
+use std::io::{Error, Write};
 
 // use std::env;
 
@@ -18,9 +14,22 @@ fn main() -> Result<(), Error> {
         if path_name.starts_with("_") {
             continue;
         }
-        let content = read_to_string(path_name)
-            .expect(path_name);
-        contents.push_str(&format!("#[allow(dead_code)]pub static {}: &str = r#\"{}\"#;", path.unwrap().file_name().to_str().unwrap().replace(".html", "").to_ascii_uppercase(), content.lines().map(|s| s.trim()).filter(|s| !s.is_empty()).collect::<Vec<&str>>().join("")));
+        let content = read_to_string(path_name).expect(path_name);
+        contents.push_str(&format!(
+            "#[allow(dead_code)]pub static {}: &str = r#\"{}\"#;",
+            path.unwrap()
+                .file_name()
+                .to_str()
+                .unwrap()
+                .replace(".html", "")
+                .to_ascii_uppercase(),
+            content
+                .lines()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<&str>>()
+                .join("")
+        ));
     }
     if Path::new("src/html.rs").exists() {
         if contents != read_to_string("src/html.rs")? {
@@ -29,7 +38,7 @@ fn main() -> Result<(), Error> {
         }
     } else {
         let mut output = File::create("src/html.rs")?;
-        write!(output, "{}", contents)?; 
+        write!(output, "{}", contents)?;
     }
 
     // export .env

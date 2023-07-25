@@ -1,7 +1,5 @@
-use sqlx::types::chrono::{
-    NaiveDateTime,
-};
 use serde::{self, Deserialize, Deserializer, Serializer};
+use sqlx::types::chrono::NaiveDateTime;
 // de::Error
 
 // const FORMAT: &str = "%+";
@@ -17,10 +15,7 @@ where
 }
 
 #[allow(dead_code)]
-pub fn serialize<S>(
-    date: &NaiveDateTime,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
+pub fn serialize<S>(date: &NaiveDateTime, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {

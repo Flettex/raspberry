@@ -1,22 +1,23 @@
 use std::{
     env,
-    sync::{
-        atomic::{AtomicUsize},
-        Arc,
-    },
+    sync::{atomic::AtomicUsize, Arc},
 };
 
-use actix_identity::IdentityMiddleware;
-use actix_session::{storage::CookieSessionStore, SessionMiddleware, config::{CookieContentSecurity, PersistentSession}};
-use actix_web::{
-    web,
-    App,
-    HttpServer,
-    middleware::Logger,
-    cookie::{SameSite, Key, time::Duration},
-};
-use actix_http::header;
+// use actix_web::middleware;
+
 use actix_cors::Cors;
+use actix_http::header;
+use actix_identity::IdentityMiddleware;
+use actix_session::{
+    config::{CookieContentSecurity, PersistentSession},
+    storage::CookieSessionStore,
+    SessionMiddleware,
+};
+use actix_web::{
+    cookie::{time::Duration, Key, SameSite},
+    middleware::Logger,
+    web, App, HttpServer,
+};
 use clokwerk::{Scheduler, TimeUnits};
 
 use user_agent_parser::UserAgentParser;
@@ -56,8 +57,12 @@ async fn main() -> std::io::Result<()> {
     let app_state = Arc::new(AtomicUsize::new(0));
 
     let ua_parser = Arc::new(UserAgentParser::from_path("./regexes.yaml").unwrap());
-    
-    log::info!("{}", &env::var("DATABASE_URL").unwrap_or("postgres://postgres:1234@localhost:5432/flettex".to_string()));
+
+    log::info!(
+        "{}",
+        &env::var("DATABASE_URL")
+            .unwrap_or("postgres://postgres:1234@localhost:5432/flettex".to_string())
+    );
 
     let pool: PgPool = PgPool::connect(
         &env::var("DATABASE_URL")
@@ -78,7 +83,10 @@ async fn main() -> std::io::Result<()> {
             r#"
 DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
             "#
-        ).execute(&pool3).await.unwrap();
+        )
+        .execute(&pool3)
+        .await
+        .unwrap();
     });
 
     scheduler.every(1.days()).at("00:00").run(move || {
@@ -89,12 +97,15 @@ DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
                 r#"
 DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
                 "#
-            ).execute(&pool4).await.unwrap();
+            )
+            .execute(&pool4)
+            .await
+            .unwrap();
         });
     });
 
     // db::start::get_all_channel_names(&pool3).await.unwrap()
-    let server = Chat::new(app_state.clone(), vec![]);
+    let server = Chat::new(app_state.clone());
 
     // let is_dev = env::var("RAILWAY_STATIC_URL").is_err();
 
@@ -109,7 +120,7 @@ DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
             }
         )
     );
-    
+
     HttpServer::new(move || {
         // log::info!("{}", env::var("SECRET_KEY").unwrap());
         let mut key: Vec<u8> = env::var("SECRET_KEY").unwrap().replace("'", "").split(",").collect::<Vec<&str>>().iter().map(|x| x.parse::<u8>().unwrap()).collect();

@@ -1,7 +1,6 @@
 use actix_web::{
-    HttpRequest,
-    HttpResponse,
-    http::{StatusCode, header::ContentType}
+    http::{header::ContentType, StatusCode},
+    HttpRequest, HttpResponse,
 };
 
 use crate::html;

@@ -1,23 +1,19 @@
 #[cfg(test)]
 mod tests {
+    use crate::html;
+    use actix_http::Request;
     use actix_web::{
+        http::header::ContentType,
         // http::{self, header::ContentType},
         test,
-        App,
         web,
+        App,
         HttpResponse,
-        http::header::ContentType
     };
-    use actix_http::Request;
-    use crate::html;
 
     macro_rules! quickget {
         ($content_type: expr, $body: expr) => {
-            web::get().to(|| async {
-                HttpResponse::Ok()
-                .content_type($content_type)
-                .body($body)
-            })
+            web::get().to(|| async { HttpResponse::Ok().content_type($content_type).body($body) })
         };
     }
 
@@ -27,11 +23,9 @@ mod tests {
 
     #[actix_web::test]
     async fn test_index_get() {
-        let app = test::init_service(
-            App::new()
-                .route("/", quickget!(ContentType::html(), html::INDEX)),
-        )
-        .await;
+        let app =
+            test::init_service(App::new().route("/", quickget!(ContentType::html(), html::INDEX)))
+                .await;
 
         // body check
         let resp = test::call_and_read_body(&app, req("/")).await;

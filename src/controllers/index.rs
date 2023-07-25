@@ -1,12 +1,8 @@
-use actix_web::{
-    Responder,
-    HttpResponse,
-    web,
-};
+use actix_web::{web, HttpResponse, Responder};
 use serde_json;
 
+use crate::messages::{Message, MessageTypes};
 use crate::server;
-use crate::messages::{MessageTypes, Message};
 use utoipa;
 
 #[utoipa::path(
@@ -23,7 +19,12 @@ pub async fn post(
 ) -> impl Responder /* Result<HttpResponse, Error> */ {
     // println!("Event: {}", body.event_name);
     let json = body.into_inner();
-    srv.send(MessageTypes::MessageCreate(Message::system(serde_json::to_string(&json).unwrap(), &json.room, 0))).await;
+    srv.send(MessageTypes::MessageCreate(Message::system(
+        serde_json::to_string(&json).unwrap(),
+        &json.room,
+        0,
+    )))
+    .await;
     HttpResponse::Ok()
     // Ok(HttpResponse::Ok().content_type("text/plain").body("Test"))
 }

@@ -1,7 +1,8 @@
 use actix_identity::Identity;
 use actix_web::{
     // http::{header::ContentType, StatusCode},
-    web, HttpResponse
+    web,
+    HttpResponse,
 };
 // use actix_session::Session;
 
@@ -21,7 +22,7 @@ use utoipa;
 pub async fn get(
     pool: web::Data<PgPool>,
     id: Option<Identity>,
-    path: web::Path<(Uuid,)>
+    path: web::Path<(Uuid,)>,
 ) -> HttpResponse {
     if let Some(_) = id {
         return HttpResponse::Ok().finish();

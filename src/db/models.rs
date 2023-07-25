@@ -4,13 +4,11 @@ use std::convert::From;
 use serde::{Serialize, Deserialize};
 
 use sqlx::types::{
-    chrono::{
-        NaiveDateTime,   
-    },
+    chrono::NaiveDateTime,
     Uuid
 };
 
-use crate::format;
+use crate::{format, messages::UserFetchType};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Message {
@@ -78,6 +76,7 @@ pub struct Channel {
     pub user2: Option<i64>
 }
 
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Member {
     pub id: Uuid,
@@ -90,6 +89,40 @@ pub struct Member {
 
 // Non-database models, modified for client.
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct MessageInfo {
+    pub channel_id: Uuid,
+    pub guild_id: Option<Uuid>,
+    pub user1: Option<i64>,
+    pub user2: Option<i64>
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct MemberClient {
+    pub id: Uuid,
+    pub nick_name: Option<String>,
+    #[serde(with = "format::date_format2")]
+    pub joined_at: NaiveDateTime,
+    pub guild_id: Uuid,
+    pub user_id: i64,
+    // super scuffed ws message referencing
+    pub user: UserFetchType
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct MessageWithGuild {
+    pub id: Uuid,
+    pub content: String,
+    #[serde(with = "format::date_format2")]
+    pub created_at: NaiveDateTime,
+    #[serde(with = "format::date_format2")]
+    pub edited_at: NaiveDateTime,
+    pub author_id: i64,
+    pub channel_id: Uuid,
+    pub guild_id: Option<Uuid>,
+    pub user1: Option<i64>,
+    pub user2: Option<i64>
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct UserClient {

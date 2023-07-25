@@ -1,24 +1,15 @@
 use std::str;
 
 use actix_web::{web, HttpResponse, Responder};
-use sqlx::{
-    postgres::{
-        PgTypeInfo,
-    },
-    types::{
-        chrono::{
-            Utc,
-            DateTime,
-            NaiveDateTime,
-        },
-        Uuid
-    },
-    Column,
-    PgPool,
-    Row,
-    TypeInfo
-};
 use futures::StreamExt;
+use sqlx::{
+    postgres::PgTypeInfo,
+    types::{
+        chrono::{DateTime, NaiveDateTime, Utc},
+        Uuid,
+    },
+    Column, PgPool, Row, TypeInfo,
+};
 
 const POSTGRES_EPOCH: i64 = 946702800;
 
@@ -26,7 +17,7 @@ fn get_val(item: &[u8], info: &PgTypeInfo) -> String {
     println!("{}", info.name());
     // postgres dude why is it [110, 117, 108, 108]
     if item == [110, 117, 108, 108] {
-        return "NULL".to_string()
+        return "NULL".to_string();
     } else if info.name() == "INT8" {
         return i64::from_be_bytes(item.try_into().unwrap()).to_string();
     } else if info.name() == "INT4" {
@@ -64,7 +55,9 @@ pub async fn post(body: web::Bytes, pool: web::Data<PgPool>) -> impl Responder {
                 format!(
                     "{}Row\n{}\n",
                     acc,
-                    row.as_ref().unwrap().columns()
+                    row.as_ref()
+                        .unwrap()
+                        .columns()
                         .iter()
                         .map(|col| {
                             println!("{:?}", col);
@@ -72,7 +65,9 @@ pub async fn post(body: web::Bytes, pool: web::Data<PgPool>) -> impl Responder {
                                 "{}: {}",
                                 col.name(),
                                 get_val(
-                                    row.as_ref().unwrap().try_get_raw(col.ordinal())
+                                    row.as_ref()
+                                        .unwrap()
+                                        .try_get_raw(col.ordinal())
                                         .unwrap()
                                         .as_bytes()
                                         .unwrap_or("null".as_bytes()),
@@ -83,7 +78,8 @@ pub async fn post(body: web::Bytes, pool: web::Data<PgPool>) -> impl Responder {
                         .collect::<Vec<String>>()
                         .join("\n")
                 )
-            }).await,
+            })
+            .await,
     )
 }
 

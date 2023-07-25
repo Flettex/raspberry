@@ -1,25 +1,15 @@
-use sqlx::{
-    PgPool,
-    types::{
-        Uuid
-    }
-};
+use sqlx::{types::Uuid, PgPool};
 
 use argon2::{
-    password_hash::{
-        rand_core::OsRng,
-        PasswordHasher,
-        SaltString,
-        Error
-    },
-    Argon2
+    password_hash::{rand_core::OsRng, Error, PasswordHasher, SaltString},
+    Argon2,
 };
 
 pub struct UserAgent {
     pub os: Option<String>,
     pub device: Option<String>,
     pub browser: Option<String>,
-    pub original: String
+    pub original: String,
 }
 
 pub fn create_password(password: String) -> Result<String, Error> {
@@ -27,11 +17,18 @@ pub fn create_password(password: String) -> Result<String, Error> {
     let argon2 = Argon2::default();
     match argon2.hash_password(password.as_bytes(), &salt) {
         Ok(hash) => Ok(hash.to_string()),
-        Err(err) => Err(err)
+        Err(err) => Err(err),
     }
 }
 
-pub async fn create_user(username: String, email: String, code: i64, password_hash: String, uag: UserAgent, pool: &PgPool) -> sqlx::Result<(Uuid, i64)> {
+pub async fn create_user(
+    username: String,
+    email: String,
+    code: i64,
+    password_hash: String,
+    uag: UserAgent,
+    pool: &PgPool,
+) -> sqlx::Result<(Uuid, i64)> {
     match sqlx::query!(
         r#"
 INSERT INTO users ( username, email, password, code )
@@ -43,8 +40,9 @@ RETURNING id
         password_hash,
         code
     )
-        .fetch_one(pool)
-        .await {
+    .fetch_one(pool)
+    .await
+    {
         Ok(rec) => {
             Ok(
                 // this query cannot error...
@@ -64,8 +62,8 @@ RETURNING id
                     .fetch_one(pool)
                     .await?
                     .session_id,
-                    rec.id
-                )
+                    rec.id,
+                ),
             )
         }
         Err(e) => Err(e),

@@ -1,7 +1,5 @@
 use actix_identity::Identity;
-use actix_web::{
-    web, HttpResponse
-};
+use actix_web::{web, HttpResponse};
 
 use sqlx::postgres::PgPool;
 use sqlx::types::Uuid;
@@ -19,7 +17,7 @@ use utoipa;
 pub async fn get(
     pool: web::Data<PgPool>,
     id: Option<Identity>,
-    path: web::Path<(Uuid,)>
+    path: web::Path<(Uuid,)>,
 ) -> HttpResponse {
     if let Some(_) = id {
         return HttpResponse::Ok().finish();

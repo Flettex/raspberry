@@ -1,17 +1,9 @@
-use crate::db::models::{
-    self,
-    Guild,
-    UserClient,
-    GuildChannels,
-    Channel,
-    Member,
-    User,
-};
+use crate::db::models::{self, Channel, Guild, GuildChannels, User, UserClient, MemberClient};
 use crate::format;
-use chrono::{NaiveDateTime, Utc, NaiveDate};
-use serde::{self, Serialize, Deserialize};
-use std::clone::Clone;
+use chrono::{NaiveDate, NaiveDateTime, Utc};
+use serde::{self, Deserialize, Serialize};
 use sqlx::types::Uuid;
+use std::clone::Clone;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Message {
@@ -32,18 +24,21 @@ impl Message {
             id: Uuid::new_v4(),
             content,
             channel_id: Uuid::parse_str(channel_id).unwrap(),
-            author: UserFetchType{
+            author: UserFetchType {
                 id: author_id,
                 username: "System".to_string(),
                 profile: None,
                 description: None,
-                created_at: NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().and_hms_opt(9, 10, 11).unwrap(),
+                created_at: NaiveDate::from_ymd_opt(2016, 7, 8)
+                    .unwrap()
+                    .and_hms_opt(9, 10, 11)
+                    .unwrap(),
                 is_staff: true,
-                is_superuser: true
+                is_superuser: true,
             },
             edited_at: Utc::now().naive_utc(),
             created_at: Utc::now().naive_utc(),
-            nonce: Uuid::new_v4()
+            nonce: Uuid::new_v4(),
         }
     }
 
@@ -55,10 +50,11 @@ impl Message {
             author,
             edited_at: Utc::now().naive_utc(),
             created_at: Utc::now().naive_utc(),
-            nonce
+            nonce,
         }
     }
 
+    #[allow(dead_code)]
     pub fn from_dbmsg(msg: models::Message, author: UserFetchType, nonce: Uuid) -> Self {
         Self {
             id: msg.id,
@@ -67,53 +63,90 @@ impl Message {
             author: author,
             edited_at: msg.edited_at,
             created_at: msg.edited_at,
-            nonce
+            nonce,
+        }
+    }
+
+    pub fn from_guildmsg(msg: models::MessageWithGuild, author: UserFetchType, nonce: Uuid) -> Self {
+        Self {
+            id: msg.id,
+            content: msg.content,
+            channel_id: msg.channel_id,
+            author: author,
+            edited_at: msg.edited_at,
+            created_at: msg.edited_at,
+            nonce,
         }
     }
 }
 
 #[derive(Serialize, Deserialize, Clone)]
+pub struct MessageDeleteType {
+    pub id: Uuid,
+    pub channel_id: Uuid,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ReadyEventType {
     pub user: UserClient,
-    pub guilds: Vec<GuildChannels>
+    pub guilds: Vec<GuildChannels>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GuildCreateType {
-    pub guild: Guild
+    pub guild: Guild,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ChannelCreateType {
-    pub channel: Channel
+    pub channel: Channel,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ChannelUpdateType {
+    pub id: Uuid,
+    pub desc: Option<String>,
+    pub position: i64,
+    pub channel_type: i16,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ChannelDeleteType {
+    pub id: Uuid,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct MemberCreateType {
     // user id
     pub id: usize,
-    pub guild: Guild
+    pub guild: Guild,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct MemberRemoveType {
     pub id: usize,
-    pub room: String
+    pub room: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct MemberUpdateType {
+    pub id: usize,
+    pub nickname: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct MessagesType {
     pub channel_id: Uuid,
-    pub messages: Vec<models::Message>
+    pub messages: Vec<models::Message>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct MembersType {
     pub guild_id: Uuid,
-    pub members: Vec<Member>
+    pub members: Vec<MemberClient>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UserFetchType {
     pub id: i64,
     pub username: String,
@@ -134,7 +167,7 @@ impl From<User> for UserFetchType {
             created_at: u.created_at,
             description: u.description,
             is_staff: u.is_staff,
-            is_superuser: u.is_superuser
+            is_superuser: u.is_superuser,
         }
     }
 }
