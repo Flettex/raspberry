@@ -203,10 +203,13 @@ impl Handler for WsMessageCreate {
         //     }
         //     return ();
         // }
-        if !ctx.rooms.lock().await.contains(&self.channel_id) {
-            // bro's trying to send message to a room they don't have access to
-            return ();
-        }
+
+        // The permissions update will be soon
+
+        // if !ctx.rooms.lock().await.contains(&self.channel_id) {
+        //     // bro's trying to send message to a room they don't have access to
+        //     return ();
+        // }
         // let msg = format!("{}: {}", self.user.username, m.content);
         let msg = &self.content;
         log::info!("{} {}", msg, ctx.user.id);
@@ -271,20 +274,38 @@ impl Handler for WsMessageUpdate {
         let updated = db::ws_session::update_message(self.id, self.content.to_owned(), &ctx.pool)
             .await
             .unwrap();
-        ctx.srv
-            .send_guild_message(
-                &updated.channel_id.to_string(),
-                MessageTypes::MessageUpdate(Message {
-                    id: updated.id,
-                    content: updated.content,
-                    created_at: updated.created_at,
-                    edited_at: updated.edited_at,
-                    author: ctx.user.to_owned().into(),
-                    channel_id: updated.channel_id,
-                    nonce: self.nonce,
-                }),
-            )
-            .await;
+        if let Some(guild_id) = updated.guild_id {
+            ctx.srv
+                .send_guild_message(
+                    &guild_id.to_string(),
+                    MessageTypes::MessageUpdate(Message {
+                        id: updated.id,
+                        content: updated.content,
+                        created_at: updated.created_at,
+                        edited_at: updated.edited_at,
+                        author: ctx.user.to_owned().into(),
+                        channel_id: updated.channel_id,
+                        nonce: self.nonce,
+                    }),
+                )
+                .await;
+        } else {
+            ctx.srv
+                .send_dm(
+                    updated.user1.unwrap() as usize,
+                    updated.user2.unwrap() as usize,
+                    MessageTypes::MessageUpdate(Message {
+                        id: updated.id,
+                        content: updated.content,
+                        created_at: updated.created_at,
+                        edited_at: updated.edited_at,
+                        author: ctx.user.to_owned().into(),
+                        channel_id: updated.channel_id,
+                        nonce: self.nonce,
+                    }),
+                )
+                .await;
+        }
     }
 }
 
@@ -304,16 +325,8 @@ impl Handler for WsMessageDelete {
                     .await
             } else {
                 ctx.srv
-                    .send_to_id(
+                    .send_dm(
                         info.user1.unwrap() as usize,
-                        MessageTypes::MessageDelete(MessageDeleteType {
-                            id: self.id,
-                            channel_id: info.channel_id,
-                        })
-                    )
-                    .await;
-                ctx.srv
-                    .send_to_id(
                         info.user2.unwrap() as usize,
                         MessageTypes::MessageDelete(MessageDeleteType {
                             id: self.id,

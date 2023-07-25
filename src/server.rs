@@ -169,6 +169,7 @@ impl Chat {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn list_guilds(&self) -> Vec<String> {
         // Now lists guilds
         let mut rooms = Vec::new();
