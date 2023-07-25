@@ -6,7 +6,7 @@ use actix_web::{
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
 use rand::Rng;
-use std::sync::Arc;
+use std::{sync::Arc, borrow::Cow};
 
 use actix_session::Session;
 
@@ -41,7 +41,7 @@ pub async fn post(
         .unwrap()
         .to_str()
         .ok()
-        .unwrap();
+        .unwrap_or("");
     // println!("USER AGENT {}", user_agent.unwrap());
     let browser = ua_parser.parse_product(user_agent);
     let os = ua_parser.parse_os(user_agent);
@@ -67,21 +67,21 @@ pub async fn post(
             let uag = UserAgent {
                 os: Some(format!(
                     "{} {} {}",
-                    os.name.unwrap(),
-                    os.major.unwrap(),
-                    os.minor.unwrap()
+                    os.name.unwrap_or(Cow::Borrowed("")),
+                    os.major.unwrap_or(Cow::Borrowed("")),
+                    os.minor.unwrap_or(Cow::Borrowed(""))
                 )),
                 browser: Some(format!(
                     "{} {} {}",
-                    browser.name.unwrap(),
-                    browser.major.unwrap(),
-                    browser.minor.unwrap()
+                    browser.name.unwrap_or(Cow::Borrowed("")),
+                    browser.major.unwrap_or(Cow::Borrowed("")),
+                    browser.minor.unwrap_or(Cow::Borrowed(""))
                 )),
                 device: Some(format!(
                     "{} {} {}",
-                    device.name.unwrap(),
-                    device.model.unwrap(),
-                    device.brand.unwrap()
+                    device.name.unwrap_or(Cow::Borrowed("")),
+                    device.model.unwrap_or(Cow::Borrowed("")),
+                    device.brand.unwrap_or(Cow::Borrowed(""))
                 )),
                 original: user_agent.to_string(),
             };
