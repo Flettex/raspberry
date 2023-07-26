@@ -41,6 +41,12 @@ fn main() -> Result<(), Error> {
         write!(output, "{}", contents)?;
     }
 
+    let paths = read_dir("./").unwrap();
+
+    for path in paths {
+        println!("File name: {}", path.unwrap().path().display())
+    }
+
     // export .env
     // if Path::new(".env").exists() {
     //     let env_contents = read_to_string(".env")?;

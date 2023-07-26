@@ -199,6 +199,10 @@ pub async fn create_message(
     channel_id: Uuid,
     pool: &PgPool,
 ) -> sqlx::Result<MessageWithGuild> {
+    // Production database SUCKS. The CTE columns are all type of NULL which
+    // messes up the Option<T> types. We have to perform an INNER JOIN on the
+    // origional table message in order to return the full message.
+    // The performance shouldn't be much worse, since we are using primary keys.
     sqlx::query_as!(
         MessageWithGuild,
         r#"
@@ -207,9 +211,10 @@ WITH cte AS (
     VALUES ($1, $2, $3)
     RETURNING *
 )
-SELECT c.*, ch.guild_id, ch.user1, ch.user2
+SELECT m.*, ch.guild_id, ch.user1, ch.user2
 FROM cte AS c
 INNER JOIN channel AS ch ON c.channel_id = ch.id
+INNER JOIN message AS m ON m.id = c.id
 "#,
         content,
         author_id,
@@ -226,7 +231,7 @@ pub async fn delete_message(message_id: Uuid, pool: &PgPool) -> sqlx::Result<Mes
 WITH cte AS (
     DELETE FROM message WHERE id = $1 RETURNING channel_id
 )
-SELECT c.channel_id, ch.guild_id, ch.user1, ch.user2
+SELECT ch.id AS channel_id, ch.guild_id, ch.user1, ch.user2
 FROM cte AS c
 INNER JOIN channel AS ch ON c.channel_id = ch.id
         "#,

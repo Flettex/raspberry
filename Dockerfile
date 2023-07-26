@@ -21,6 +21,8 @@ RUN cargo build --release --bin raspberry-backend-app
 FROM debian:bullseye-slim AS runtime
 WORKDIR /raspberry
 COPY --from=builder /raspberry/target/release/raspberry-backend-app /usr/local/bin
+# 
+COPY ./regexes.yaml .
 EXPOSE 8080
 # Literally so dumb I have to set up SSL
 RUN apt-get update && apt-get install -y --reinstall ca-certificates && apt-get install -y wget &&\

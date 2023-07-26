@@ -2,6 +2,7 @@ use std::{
     env,
     sync::{atomic::AtomicUsize, Arc},
 };
+use std::fs;
 
 // use actix_web::middleware;
 
@@ -56,6 +57,18 @@ async fn main() -> std::io::Result<()> {
 
     let app_state = Arc::new(AtomicUsize::new(0));
 
+    // For container debugging purposes
+    // let paths = fs::read_dir("./").unwrap();
+    // let mut s = "".to_string();
+
+    // for path in paths {
+    //     s.push_str(&format!("Name: {}\n", path.unwrap().path().display()));
+    // }
+    // log::info!("{}", s);
+    // log::info!("{:?}", std::env::current_dir());
+
+    let _ = UserAgentParser::from_str(r#"user_agent_parsers:
+    - regex: '(GeoEvent Server) (\d+)(?:\.(\d+)(?:\.(\d+)|)|)'"#).unwrap();
     let ua_parser = Arc::new(UserAgentParser::from_path("./regexes.yaml").unwrap());
 
     log::info!(

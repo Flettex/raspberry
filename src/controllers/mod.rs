@@ -44,7 +44,7 @@ macro_rules! view {
                 .build();
             session.insert("captcha", captcha.text).unwrap();
             let replacements: HashMap<&str, String> =
-                HashMap::from_iter([("captcha", captcha.base_img)]);
+                HashMap::from_iter([("captcha", captcha.to_base64())]);
             HttpResponse::Ok()
                 .content_type(ContentType::html())
                 .body(format_html($content, replacements))
@@ -91,10 +91,10 @@ pub fn config(cfg: &mut web::ServiceConfig) {
                         .dark_mode(false)
                         .complexity(5) // min: 1, max: 10
                         .build();
-                    session.insert("captcha", captcha.text).unwrap();
+                    session.insert("captcha", captcha.text.clone()).unwrap();
                     HttpResponse::Ok()
                         .content_type(ContentType::plaintext())
-                        .body(captcha.base_img)
+                        .body(captcha.to_base64())
                 }))
                 .route(web::post().to(signup::post)),
         )
@@ -108,10 +108,10 @@ pub fn config(cfg: &mut web::ServiceConfig) {
                         .dark_mode(false)
                         .complexity(5) // min: 1, max: 10
                         .build();
-                    session.insert("captcha", captcha.text).unwrap();
+                    session.insert("captcha", captcha.text.clone()).unwrap();
                     HttpResponse::Ok()
                         .content_type(ContentType::plaintext())
-                        .body(captcha.base_img)
+                        .body(captcha.to_base64())
                 }))
                 .route(web::post().to(login::post)),
         )
