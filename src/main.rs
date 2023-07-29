@@ -2,7 +2,7 @@ use std::{
     env,
     sync::{atomic::AtomicUsize, Arc},
 };
-use std::fs;
+// use std::fs;
 
 // use actix_web::middleware;
 
@@ -67,8 +67,6 @@ async fn main() -> std::io::Result<()> {
     // log::info!("{}", s);
     // log::info!("{:?}", std::env::current_dir());
 
-    let _ = UserAgentParser::from_str(r#"user_agent_parsers:
-    - regex: '(GeoEvent Server) (\d+)(?:\.(\d+)(?:\.(\d+)|)|)'"#).unwrap();
     let ua_parser = Arc::new(UserAgentParser::from_path("./regexes.yaml").unwrap());
 
     log::info!(
@@ -151,7 +149,7 @@ DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
             // set allowed methods list
             .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
             // set allowed request header list
-            .allowed_headers(&[header::AUTHORIZATION, header::ACCEPT, header::COOKIE])
+            .allowed_headers(&[header::AUTHORIZATION, header::ACCEPT, header::COOKIE, header::USER_AGENT])
             // add header to allowed list
             .allowed_header(header::CONTENT_TYPE)
             // set list of headers that are safe to expose
@@ -172,7 +170,6 @@ DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
                 .cookie_content_security(CookieContentSecurity::Private)
                 .session_lifecycle(PersistentSession::default().session_ttl(Duration::days(7)))
                 .build()
-
             )
             .app_data(web::Data::from(app_state.clone()))
             .app_data(web::Data::new(pool.clone()))

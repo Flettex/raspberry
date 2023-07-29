@@ -506,9 +506,9 @@ impl Chat {
     pub async fn send_dm(&self, id1: usize, id2: usize, message: MessageTypes) {
         let mut sessions = self.sessions.lock().await;
         let msg = message.clone();
-        if let (Some(sessions_1), Some(sessions_2)) = (sessions.remove(&id1), sessions.remove(&id2)) {
+        if let Some(sessions_) = sessions.remove(&id1) {
             let mut results = Vec::new();
-            for mut session in sessions_1.into_iter().chain(sessions_2.into_iter()) {
+            for mut session in sessions_ {
                 let res = match session.recv_type {
                     WsMsgType::Json => {
                         session
@@ -531,5 +531,55 @@ impl Chat {
             }
             sessions.insert(id1, results.into_iter().filter_map(|i| i.ok()).collect());
         }
+        if let Some(sessions_) = sessions.remove(&id2) {
+            let mut results = Vec::new();
+            for mut session in sessions_ {
+                let res = match session.recv_type {
+                    WsMsgType::Json => {
+                        session
+                            .session
+                            .text(serde_json::to_string(&msg).unwrap())
+                            .await
+                    }
+                    WsMsgType::Cbor => {
+                        session
+                            .session
+                            .binary(serde_cbor::to_vec(&msg).unwrap())
+                            .await
+                    }
+                };
+                // let res = session.session.text(serde_json::to_string(&msg).unwrap()).await;
+                results.push(
+                    res.map(|_| session)
+                        .map_err(|_| log::info!("Dropping session")),
+                );
+            }
+            sessions.insert(id1, results.into_iter().filter_map(|i| i.ok()).collect());
+        }
+        // if let (Some(sessions_1), Some(sessions_2)) = (sessions.remove(&id1), sessions.remove(&id2)) {
+        //     let mut results = Vec::new();
+        //     for mut session in sessions_1.into_iter().chain(sessions_2.into_iter()) {
+        //         let res = match session.recv_type {
+        //             WsMsgType::Json => {
+        //                 session
+        //                     .session
+        //                     .text(serde_json::to_string(&msg).unwrap())
+        //                     .await
+        //             }
+        //             WsMsgType::Cbor => {
+        //                 session
+        //                     .session
+        //                     .binary(serde_cbor::to_vec(&msg).unwrap())
+        //                     .await
+        //             }
+        //         };
+        //         // let res = session.session.text(serde_json::to_string(&msg).unwrap()).await;
+        //         results.push(
+        //             res.map(|_| session)
+        //                 .map_err(|_| log::info!("Dropping session")),
+        //         );
+        //     }
+        //     sessions.insert(id1, results.into_iter().filter_map(|i| i.ok()).collect());
+        // }
     }
 }

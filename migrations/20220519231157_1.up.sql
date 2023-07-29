@@ -68,9 +68,14 @@ CREATE TABLE IF NOT EXISTS "channel" (
     "user2"         BIGINT REFERENCES users(id),
     UNIQUE (position, guild_id),
     UNIQUE (name, guild_id),
+    -- UNIQUE (user1, user2),
+    CONSTRAINT DIFFERENT_USERS_CHECK
+    CHECK (user1 <> user2),
     CONSTRAINT DM_CHANNEL_CHECK
     CHECK ((guild_id IS NOT NULL AND user1 IS NULL AND user2 IS NULL) OR (guild_id IS NULL AND user1 IS NOT NULL AND user2 IS NOT NULL) )
 );
+
+CREATE UNIQUE INDEX ON channel (least(user1, user2), greatest(user1, user2));
 
 
 CREATE TABLE IF NOT EXISTS "member" (
@@ -87,7 +92,7 @@ CREATE TABLE IF NOT EXISTS "role" (
     "colour"          varchar(15) NOT NULL,
     "position"        integer NOT NULL CHECK ("position" >= 0),
     "created_at"      TIMESTAMP DEFAULT current_timestamp NOT NULL ,
-    "guild_id"        uuid NOT NULL REFERENCES guild(id),
+    "guild_id"        uuid NOT NULL REFERENCES guild(id) ON DELETE CASCADE,
     --- Role permission fields
     --- Allow to read and send messages by default
     "permissions" integer

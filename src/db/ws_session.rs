@@ -51,6 +51,20 @@ FROM member;
     .await
 }
 
+pub async fn get_user_by_id(user_id: i64, pool: &PgPool) -> sqlx::Result<UserFetchType> {
+    sqlx::query_as!(
+        UserFetchType,
+        r#"
+SELECT id, username, profile, created_at, description, is_staff, is_superuser
+FROM users
+WHERE id = $1
+        "#,
+        user_id
+    )
+    .fetch_one(pool)
+    .await
+}
+
 pub async fn get_user_by_session_id(session_id: String, pool: &PgPool) -> sqlx::Result<User> {
     sqlx::query_as!(
         User,
@@ -199,10 +213,10 @@ pub async fn create_message(
     channel_id: Uuid,
     pool: &PgPool,
 ) -> sqlx::Result<MessageWithGuild> {
-    // Production database SUCKS. The CTE columns are all type of NULL which
-    // messes up the Option<T> types. We have to perform an INNER JOIN on the
-    // origional table message in order to return the full message.
-    // The performance shouldn't be much worse, since we are using primary keys.
+    // Production database SUCKS. The CTE columns are NULLABLE (default SQLX) which
+    // messes up the Option<T> types. We have to use Type Overriding
+    // because we know this is not nullable (tested in local PG)
+    // Read the function below for more information
     sqlx::query_as!(
         MessageWithGuild,
         r#"
@@ -211,10 +225,9 @@ WITH cte AS (
     VALUES ($1, $2, $3)
     RETURNING *
 )
-SELECT m.*, ch.guild_id, ch.user1, ch.user2
+SELECT c.* AS "*!", ch.guild_id, ch.user1, ch.user2
 FROM cte AS c
 INNER JOIN channel AS ch ON c.channel_id = ch.id
-INNER JOIN message AS m ON m.id = c.id
 "#,
         content,
         author_id,
@@ -227,11 +240,17 @@ INNER JOIN message AS m ON m.id = c.id
 pub async fn delete_message(message_id: Uuid, pool: &PgPool) -> sqlx::Result<MessageInfo> {
     sqlx::query_as!(
         MessageInfo,
+        /* Note: "channel_id!" is because cockroachDB
+        returns CTE column types as "null" nullable.
+        Meaning whether or not the type is "nullable" is undefined.
+        I don't know. It's pretty weird. Usually we have "true" or "false",
+        but this boolean is "null".
+         */
         r#"
 WITH cte AS (
     DELETE FROM message WHERE id = $1 RETURNING channel_id
 )
-SELECT ch.id AS channel_id, ch.guild_id, ch.user1, ch.user2
+SELECT c.channel_id AS "channel_id!", ch.guild_id, ch.user1, ch.user2
 FROM cte AS c
 INNER JOIN channel AS ch ON c.channel_id = ch.id
         "#,
@@ -241,8 +260,31 @@ INNER JOIN channel AS ch ON c.channel_id = ch.id
     .await
 }
 
+pub async fn create_dm_channel(user1: i64, user2: i64, pool: &PgPool) -> sqlx::Result<Channel> {
+    sqlx::query_as!(
+        Channel,
+        r#"
+WITH cte AS (
+    INSERT INTO channel (name, position, channel_type, user1, user2)
+    VALUES ($1, $2, $3, $4, $5)
+    ON CONFLICT DO NOTHING
+)
+SELECT *
+FROM channel
+WHERE (user1 = $5 AND user2 = $4) OR (user1 = $4 AND user2 = $5)
+        "#,
+        "",
+        0,
+        1,
+        user1,
+        user2
+    )
+    .fetch_one(pool)
+    .await
+}
+
 pub async fn create_channel(channel: WsChannelCreate, pool: &PgPool) -> sqlx::Result<Channel> {
-    match sqlx::query_as!(
+    sqlx::query_as!(
         Channel,
         r#"
 INSERT INTO channel (name, description, position, guild_id, channel_type) 
@@ -256,10 +298,6 @@ VALUES ($1, $2, $3, $4, $5) RETURNING *
     )
     .fetch_one(pool)
     .await
-    {
-        Ok(rec) => Ok(rec),
-        Err(err) => Err(err),
-    }
 }
 
 pub async fn join_guild(user_id: i64, guild_id: Uuid, pool: &PgPool) -> sqlx::Result<Vec<Channel>> {
@@ -310,6 +348,7 @@ UPDATE user_sessions SET last_login = NOW() WHERE session_id = $1
 
 pub async fn update_message(
     message_id: Uuid,
+    author_id: i64,
     content: String,
     pool: &PgPool,
 ) -> sqlx::Result<MessageWithGuild> {
@@ -324,11 +363,12 @@ FROM
     FROM channel AS c
     JOIN message m ON m.channel_id = c.id
   ) sub
-WHERE id = $2
+WHERE id = $2 AND author_id = $3
 RETURNING *
         "#,
         content,
-        message_id
+        message_id,
+        author_id
     )
     .fetch_one(pool)
     .await
@@ -378,7 +418,7 @@ pub async fn update_channel(chan: &WsChannelUpdate, pool: &PgPool) -> sqlx::Resu
         r#"
 UPDATE channel
 SET name = $2, description = $3, position = $4, channel_type = $5
-WHERE id = $1
+WHERE id = $1 AND channel_type <> 1
 RETURNING *
         "#,
         chan.id,
@@ -394,7 +434,9 @@ RETURNING *
 pub async fn delete_channel(id: Uuid, pool: &PgPool) -> sqlx::Result<Option<Uuid>> {
     match sqlx::query!(
         r#"
-DELETE FROM channel WHERE id = $1 RETURNING guild_id
+DELETE FROM channel
+WHERE id = $1 AND channel_type <> 1
+RETURNING guild_id
         "#,
         id
     )

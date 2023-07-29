@@ -58,6 +58,12 @@ pub enum WsReceiveTypes {
     GuildCreate(WsGuildCreate),
     // {"type":"ChannelCreate", "data":{"name": "dumbdumbs", "position": 0, "guild_id": "bruh-bruh-bruh-bruh"}}
     ChannelCreate(WsChannelCreate),
+    // 
+    DMChannelCreate(WsDMChannelCreate),
+    // 
+    ChannelUpdate(WsChannelUpdate),
+    // 
+    ChannelDelete(WsChannelDelete),
     // {"type": "MemberCreate", "data":{"guild_id": "bruh-bruh-bruh-bruh"}}
     MemberCreate(WsMemberCreate),
     //

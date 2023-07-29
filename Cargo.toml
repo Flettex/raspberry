@@ -29,7 +29,7 @@ rand = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_cbor = "0.11"
-sqlx = { version = "0.6", features = [ "postgres", "chrono", "runtime-actix-native-tls", "uuid" ] }
+sqlx = { version = "0.7.1", features = [ "postgres", "chrono", "runtime-tokio", "tls-native-tls", "uuid" ] }
 chrono = { version = "0.4.19", features = [ "std" ] }
 uuid = { version = "1.1.2", features = [ "serde", "v4" ] }
 argon2 = "0.4.1"

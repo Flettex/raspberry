@@ -51,6 +51,11 @@ pub struct WsGuildCreate {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct WsDMChannelCreate {
+    pub user_id: i64
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct WsChannelCreate {
     pub name: String,
     pub desc: Option<String>,
@@ -91,7 +96,7 @@ pub struct WsMemberFetchType {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct WsUserFetchType {
-    pub id: usize,
+    pub id: i64,
 }
 
 #[async_trait]
@@ -271,40 +276,39 @@ impl Handler for WsMessageCreate {
 impl Handler for WsMessageUpdate {
     async fn handle(&self, ctx: WsChatSession) {
         // Should not error unless the user delete and update the message at the exact same time. VERY unlikely.
-        let updated = db::ws_session::update_message(self.id, self.content.to_owned(), &ctx.pool)
-            .await
-            .unwrap();
-        if let Some(guild_id) = updated.guild_id {
-            ctx.srv
-                .send_guild_message(
-                    &guild_id.to_string(),
-                    MessageTypes::MessageUpdate(Message {
-                        id: updated.id,
-                        content: updated.content,
-                        created_at: updated.created_at,
-                        edited_at: updated.edited_at,
-                        author: ctx.user.to_owned().into(),
-                        channel_id: updated.channel_id,
-                        nonce: self.nonce,
-                    }),
-                )
-                .await;
-        } else {
-            ctx.srv
-                .send_dm(
-                    updated.user1.unwrap() as usize,
-                    updated.user2.unwrap() as usize,
-                    MessageTypes::MessageUpdate(Message {
-                        id: updated.id,
-                        content: updated.content,
-                        created_at: updated.created_at,
-                        edited_at: updated.edited_at,
-                        author: ctx.user.to_owned().into(),
-                        channel_id: updated.channel_id,
-                        nonce: self.nonce,
-                    }),
-                )
-                .await;
+        if let Ok(updated) = db::ws_session::update_message(self.id, ctx.user.id, self.content.to_owned(), &ctx.pool).await {
+            if let Some(guild_id) = updated.guild_id {
+                ctx.srv
+                    .send_guild_message(
+                        &guild_id.to_string(),
+                        MessageTypes::MessageUpdate(Message {
+                            id: updated.id,
+                            content: updated.content,
+                            created_at: updated.created_at,
+                            edited_at: updated.edited_at,
+                            author: ctx.user.to_owned().into(),
+                            channel_id: updated.channel_id,
+                            nonce: self.nonce,
+                        }),
+                    )
+                    .await;
+            } else {
+                ctx.srv
+                    .send_dm(
+                        updated.user1.unwrap() as usize,
+                        updated.user2.unwrap() as usize,
+                        MessageTypes::MessageUpdate(Message {
+                            id: updated.id,
+                            content: updated.content,
+                            created_at: updated.created_at,
+                            edited_at: updated.edited_at,
+                            author: ctx.user.to_owned().into(),
+                            channel_id: updated.channel_id,
+                            nonce: self.nonce,
+                        }),
+                    )
+                    .await;
+            }
         }
     }
 }
@@ -445,8 +449,17 @@ impl Handler for WsMemberFetchType {
 #[async_trait]
 impl Handler for WsUserFetchType {
     async fn handle(&self, ctx: WsChatSession) {
-        if let Some(user) = ctx.srv.find_user_by_id(self.id).await {
+        if let Some(user) = ctx.srv.find_user_by_id(self.id as usize).await {
             ctx.send_event(MessageTypes::UserFetch(user.into())).await;
+        } else {
+            match db::ws_session::get_user_by_id(self.id, &ctx.pool).await {
+                Ok(user) => {
+                    ctx.send_event(MessageTypes::UserFetch(user)).await;
+                }
+                Err(err) => {
+                    println!("{:?}", err);
+                }
+            }
         }
     }
 }
@@ -475,8 +488,32 @@ impl Handler for WsGuildCreate {
 }
 
 #[async_trait]
+impl Handler for WsDMChannelCreate {
+    async fn handle(&self, ctx: WsChatSession) {
+        match db::ws_session::create_dm_channel(ctx.user.id, self.user_id, &ctx.pool).await {
+            Ok(rec) => {
+                ctx.srv.send_dm(ctx.user.id as usize, self.user_id as usize, MessageTypes::ChannelCreate(ChannelCreateType {
+                    channel: rec.to_owned()
+                }))
+                .await;
+            }
+            Err(err) => {
+                println!("{:?}", err);
+                // ctx.srv.send_dm(ctx.user.id as usize, self.user_id as usize, MessageTypes::ChannelCreate(ChannelCreateType {
+                //     channel: 
+                // }))
+                // .await;
+            }
+        }
+    }
+}
+
+#[async_trait]
 impl Handler for WsChannelCreate {
     async fn handle(&self, ctx: WsChatSession) {
+        if self.channel_type == 1 {
+            return;
+        }
         match db::ws_session::create_channel(self.to_owned(), &ctx.pool).await {
             Ok(rec) => {
                 // ctx.rooms.lock().await.insert(rec.id.to_string());
@@ -498,24 +535,24 @@ impl Handler for WsChannelCreate {
 #[async_trait]
 impl Handler for WsChannelUpdate {
     async fn handle(&self, ctx: WsChatSession) {
-        let updated = db::ws_session::update_channel(self, &ctx.pool)
-            .await
-            .unwrap();
-        // CHANNEL_UPDATE is forbidden if it is a DM channel
-        if let Some(guild_id) = updated.guild_id {
-            ctx.srv
-                .send_guild_message(
-                    &guild_id.to_string(),
-                    MessageTypes::ChannelUpdate(ChannelUpdateType {
-                        id: updated.id,
-                        desc: updated.description,
-                        position: updated.position,
-                        channel_type: updated.channel_type,
-                    }),
-                )
-                .await;
-        } else {
-            // some dude trying to edit a DM channel which is not allowed
+        // will error if it is a dm channel
+        if let Ok(updated) = db::ws_session::update_channel(self, &ctx.pool).await {
+            // CHANNEL_UPDATE is forbidden if it is a DM channel
+            if let Some(guild_id) = updated.guild_id {
+                ctx.srv
+                    .send_guild_message(
+                        &guild_id.to_string(),
+                        MessageTypes::ChannelUpdate(ChannelUpdateType {
+                            id: updated.id,
+                            desc: updated.description,
+                            position: updated.position,
+                            channel_type: updated.channel_type,
+                        }),
+                    )
+                    .await;
+            } else {
+                // that's weird...
+            }
         }
     }
 }
