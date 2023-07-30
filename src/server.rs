@@ -506,6 +506,7 @@ impl Chat {
     pub async fn send_dm(&self, id1: usize, id2: usize, message: MessageTypes) {
         let mut sessions = self.sessions.lock().await;
         let msg = message.clone();
+        // Split into two because one user might be offline.
         if let Some(sessions_) = sessions.remove(&id1) {
             let mut results = Vec::new();
             for mut session in sessions_ {
