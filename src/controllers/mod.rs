@@ -80,7 +80,7 @@ pub fn config(cfg: &mut web::ServiceConfig) {
 
     // controllers
 
-    cfg.service(web::resource("/health").route(web::get().to(|| HttpResponse::Ok())))
+    cfg.service(web::resource("/health").route(web::get().to(HttpResponse::Ok)))
         .service(
             web::resource("/signup")
                 .route(web::get().to(|session: Session| async move {

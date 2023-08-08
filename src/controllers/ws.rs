@@ -49,10 +49,10 @@ pub async fn get(
         println!("Receiving ws request");
         let recv_type = match query.into_inner().recv_type {
             Some(t) => {
-                if t == "json".to_string() {
+                if t == *"json" {
                     WsMsgType::Json
-                } else if t == "cbor".to_string() {
-                    WsMsgType::Cbor
+                // } else if t == "cbor".to_string() {
+                //     WsMsgType::Cbor
                 } else {
                     WsMsgType::Cbor
                 }

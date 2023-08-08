@@ -39,7 +39,7 @@ pub async fn post(
     req: HttpRequest,
     ua_parser: web::Data<Arc<UserAgentParser>>,
 ) -> HttpResponse {
-    if let Some(_) = id {
+    if id.is_some() {
         return HttpResponse::Ok().finish();
     }
     let pl = body.decode();

@@ -50,7 +50,7 @@ pub async fn post(
         "User Agents\nProduct {:#?}\nOs {:#?}\nDevice {:#?}",
         browser, os, device
     );
-    if let Some(_) = id {
+    if id.is_some() {
         return HttpResponse::Ok().finish();
     }
     let pl = body.into_inner();
@@ -88,7 +88,7 @@ pub async fn post(
             match create_user(
                 pl.username,
                 pl.email.clone(),
-                code.clone().into(),
+                code.into(),
                 password_hash,
                 uag,
                 pool.as_ref(),

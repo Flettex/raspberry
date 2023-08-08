@@ -11,7 +11,7 @@ fn main() -> Result<(), Error> {
 
     for path in paths {
         let path_name = &path.as_ref().unwrap().path().display().to_string();
-        if path_name.starts_with("_") {
+        if path_name.starts_with('_') {
             continue;
         }
         let content = read_to_string(path_name).expect(path_name);

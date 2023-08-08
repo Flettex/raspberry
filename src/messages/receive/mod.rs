@@ -230,8 +230,7 @@ impl Handler for WsMessageCreate {
                     )),
                 )
                 .await;
-        } else {
-            if let Ok(msg) = db::ws_session::create_message(
+        } else if let Ok(msg) = db::ws_session::create_message(
                 msg.to_string(),
                 ctx.user.id,
                 Uuid::parse_str(&self.channel_id.clone()).unwrap(),
@@ -267,7 +266,6 @@ impl Handler for WsMessageCreate {
                         )
                         .await;
                 }
-            }
         }
     }
 }
@@ -432,7 +430,7 @@ impl Handler for WsMemberUpdate {
 #[async_trait]
 impl Handler for WsMemberFetchType {
     async fn handle(&self, ctx: WsChatSession) {
-        if self.guild_id.to_string() == PLACEHOLDER_UUID.to_string() {
+        if self.guild_id.to_string() == *PLACEHOLDER_UUID {
             // nobody is in Main though hmm, this is purely waste of bandwidth!
             return;
         }
@@ -560,15 +558,15 @@ impl Handler for WsChannelUpdate {
 #[async_trait]
 impl Handler for WsChannelDelete {
     async fn handle(&self, ctx: WsChatSession) {
-        if let Ok(guild_id) = db::ws_session::delete_channel(self.id, &ctx.pool).await {
-            if let Some(guild_id) = guild_id {
+        if let Ok(Some(guild_id)) = db::ws_session::delete_channel(self.id, &ctx.pool).await {
+            // if let Some(guild_id) = guild_id {
                 ctx.srv.send_guild_message(
                     &guild_id.to_string(),
                     MessageTypes::ChannelDelete(ChannelDeleteType { id: self.id }),
                 ).await;
-            } else {
+            // } else {
                 // wtf it is a DM channel??!?
-            }
+            // }
         }
     }
 }

@@ -8,7 +8,7 @@ use crate::db::{self, models};
 use crate::messages::{Handler, Message as Msg, MessageTypes, ReadyEventType, WsReceiveTypes};
 use crate::{controllers::ws::WsMsgType, server, PLACEHOLDER_UUID};
 use actix_ws::{CloseReason, Message, MessageStream, Session};
-use serde_json;
+// use serde_json;
 use tokio::sync::Mutex;
 
 use futures::StreamExt;

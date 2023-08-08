@@ -2,7 +2,6 @@ use std::{
     env,
     sync::{atomic::AtomicUsize, Arc},
 };
-// use std::fs;
 
 // use actix_web::middleware;
 
@@ -134,7 +133,7 @@ DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
 
     HttpServer::new(move || {
         // log::info!("{}", env::var("SECRET_KEY").unwrap());
-        let mut key: Vec<u8> = env::var("SECRET_KEY").unwrap().replace("'", "").split(",").collect::<Vec<&str>>().iter().map(|x| x.parse::<u8>().unwrap()).collect();
+        let mut key: Vec<u8> = env::var("SECRET_KEY").unwrap().replace('\'', "").split(',').collect::<Vec<&str>>().iter().map(|x| x.parse::<u8>().unwrap()).collect();
         key.extend(key.clone().iter().rev());
         let secret_key = Key::from(&key);
         let cors = Cors::default()
@@ -161,12 +160,12 @@ DELETE FROM user_sessions WHERE last_login < (NOW() - INTERVAL '7 days')
             .wrap(
                 SessionMiddleware::builder(
                     CookieSessionStore::default(),
-                    secret_key.clone()
+                    secret_key
                 )
                 .cookie_name("auth-cookie".to_string())
                 .cookie_same_site(if IS_DEV {SameSite::Lax} else {SameSite::None})
                 .cookie_http_only(true)
-                .cookie_secure(if IS_DEV {false} else {true})
+                .cookie_secure(!IS_DEV)
                 .cookie_content_security(CookieContentSecurity::Private)
                 .session_lifecycle(PersistentSession::default().session_ttl(Duration::days(7)))
                 .build()

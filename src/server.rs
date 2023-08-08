@@ -13,7 +13,7 @@ use futures::stream::{FuturesUnordered, StreamExt};
 use tokio::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
-use serde_json;
+// use serde_json;
 
 use crate::{
     controllers::ws::WsMsgType,
@@ -141,7 +141,7 @@ impl Chat {
     #[allow(dead_code)]
     pub async fn get_sessions_by_user_id(&self, user_id: usize) -> Option<Vec<WsChatSession>> {
         let sessions = self.sessions.lock().await;
-        if let Some(_) = sessions.get(&user_id) {
+        if sessions.get(&user_id).is_some() {
             Some(sessions[&user_id].to_owned())
         } else {
             None
@@ -197,7 +197,7 @@ impl Chat {
             let mut rooms = self.guilds.lock().await;
             if let Some(sessions) = rooms.get_mut(&guild_id) {
                 if sessions.remove(&user_id) {
-                    if sessions.len() == 0 {
+                    if sessions.is_empty() {
                         rooms.remove(&guild_id);
                         return;
                     }

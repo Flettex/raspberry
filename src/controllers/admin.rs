@@ -22,7 +22,7 @@ pub fn format_html(resp: &str, replacements: HashMap<&str, String>) -> String {
                     .unwrap()],
             )
         })
-        .replace("\n", "<br />")
+        .replace('\n', "<br />")
 }
 
 pub async fn get(pool: web::Data<PgPool>) -> HttpResponse {

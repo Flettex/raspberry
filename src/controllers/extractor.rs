@@ -19,11 +19,10 @@ pub enum ValidatedForm<T, K = T> {
 
 impl<T> ValidatedForm<T> {
     pub fn decode(self) -> T {
-        let payload = match self {
+        match self {
             Self::Json(payload) => payload,
             Self::Form(payload) => payload,
-        };
-        payload
+        }
     }
 }
 
@@ -65,7 +64,7 @@ where
                 }
             }
 
-            return Err(ErrorBadRequest("invalid content".to_string()));
+            Err(ErrorBadRequest("invalid content".to_string()))
         })
     }
 }

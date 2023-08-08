@@ -24,7 +24,7 @@ pub async fn get(
     id: Option<Identity>,
     path: web::Path<(Uuid,)>,
 ) -> HttpResponse {
-    if let Some(_) = id {
+    if id.is_some() {
         return HttpResponse::Ok().finish();
     }
     let pl = path.into_inner();
