@@ -1,9 +1,13 @@
+# Flettex/raspberry
+
+Backend. The name reflects a randomly generated fruit.
+
 # Instructions
 
 1. export $(cat .env | xargs)
 
-Note: above doesn't work on Windows so please don't use Windows to run this project (you will get banned from contributing if you use Windows /j)
+Note: above doesn't work on Windows. We do not know how to use Windows.
 
 2. cargo watch --ignore 'src/html.rs' -x run
 
-and docker probably doesn't work (it never works)
+and docker probably doesn't work
